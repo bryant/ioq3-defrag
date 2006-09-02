@@ -134,14 +134,7 @@ LIBSDIR=$(MOUNT_DIR)/libs
 VERSION=$(shell grep "\#define Q3_VERSION" $(CMDIR)/q_shared.h | \
   sed -e 's/.*".* \([^ ]*\)"/\1/')
 
-USE_SVN=
-ifeq ($(wildcard .svn),.svn)
-  SVN_REV=$(shell LANG=C svnversion .)
-  ifneq ($(SVN_REV),)
-    SVN_VERSION=$(VERSION)_SVN$(SVN_REV)
-    USE_SVN=1
-  endif
-endif
+USE_SVN=0
 ifneq ($(USE_SVN),1)
     SVN_VERSION=$(VERSION)
 endif
