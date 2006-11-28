@@ -316,13 +316,13 @@ ifeq ($(PLATFORM),darwin)
   endif
 
   ifeq ($(ARCH),ppc)
-    OPTIMIZE += -faltivec
+    OPTIMIZE += -faltivec -O3
     # Carbon is required on PPC only to make a call to MakeDataExecutable
     # in the PPC vm (should be a better non-Carbon way).
     LDFLAGS += -framework Carbon
   endif
   ifeq ($(ARCH),i386)
-    OPTIMIZE += -msse2
+    OPTIMIZE += -march=prescott -mfpmath=sse
     # x86 vm will crash without -mstackrealign since MMX instructions will be
     # used no matter what and they corrupt the frame pointer in VM calls
     BASE_CFLAGS += -mstackrealign
@@ -362,7 +362,7 @@ ifeq ($(PLATFORM),darwin)
     #CLIENT_LDFLAGS += -L/usr/X11R6/$(LIB) -lX11 -lXext -lXxf86dga -lXxf86vm
   endif
 
-  OPTIMIZE += -O3 -ffast-math -falign-loops=16
+  OPTIMIZE += -ffast-math -falign-loops=16
 
   ifneq ($(HAVE_VM_COMPILED),true)
     BASE_CFLAGS += -DNO_VM_COMPILED
@@ -420,7 +420,7 @@ ifeq ($(PLATFORM),mingw32)
 
   BINEXT=.exe
 
-  LDFLAGS= -mwindows -lshfolder -lwsock32 -lgdi32 -lwinmm -lole32
+  LDFLAGS= -mwindows -lwsock32 -lgdi32 -lwinmm -lole32
   CLIENT_LDFLAGS=
 
   ifeq ($(USE_CODEC_VORBIS),1)

@@ -482,8 +482,12 @@ void CL_ParseGamestate( msg_t *msg ) {
 	// parse serverId and other cvars
 	CL_SystemInfoChanged();
 
+	// stop recording now so the demo won't have an unnecessary level load at the end.
+	if(cl_autoRecordDemo->integer && clc.demorecording)
+		CL_StopRecord_f();
+	
 	// reinitialize the filesystem if the game directory has changed
-  FS_ConditionalRestart( clc.checksumFeed );
+	FS_ConditionalRestart( clc.checksumFeed );
 
 	// This used to call CL_StartHunkUsers, but now we enter the download state before loading the
 	// cgame

@@ -18,9 +18,9 @@ BUILD_DATE="`/usr/bin/date '+%Y%m%d%H%M%S'`"
 SVNVERSION=/usr/local/bin/svnversion
 if [ -x /usr/local/bin/svnversion ]; then
 	SVN_BANNER=`/usr/local/bin/svnversion ${MOUNT_DIR}|sed -e 's/S$//' -e 's/M$//' `
-	BUILD_VERSION="1.34-rc2"
+	BUILD_VERSION="1.34-rc3"
 else
-	BUILD_VERSION="1.34-rc2"
+	BUILD_VERSION="1.34-rc3"
 fi
 PKG_VERSION="`date '+%Y%m%d%H%M'`"
 PKG_MAINT_ID="quake@cojot.name"
