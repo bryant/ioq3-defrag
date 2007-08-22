@@ -26,6 +26,13 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #ifndef BG_LIB_H
 #define BG_LIB_H
 
+//Ignore __attribute__ on non-gcc platforms
+#ifndef __GNUC__
+#ifndef __attribute__
+#define __attribute__(x)
+#endif
+#endif
+
 #ifndef NULL
 #define NULL ((void *)0)
 #endif
@@ -76,7 +83,7 @@ int atoi( const char *string );
 int _atoi( const char **stringPtr );
 
 int vsprintf( char *buffer, const char *fmt, va_list argptr );
-int sscanf( const char *buffer, const char *fmt, ... );
+int sscanf( const char *buffer, const char *fmt, ... ) __attribute__ ((format (scanf, 2, 3)));
 
 // Memory functions
 void *memmove( void *dest, const void *src, size_t count );

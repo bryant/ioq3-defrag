@@ -325,6 +325,7 @@ void CL_ParseSnapshot( msg_t *msg ) {
 //=====================================================================
 
 int cl_connectedToPureServer;
+int cl_connectedToCheatServer;
 
 /*
 ==================
@@ -355,7 +356,8 @@ void CL_SystemInfoChanged( void ) {
 	}
 
 	s = Info_ValueForKey( systemInfo, "sv_cheats" );
-	if ( atoi(s) == 0 ) {
+	cl_connectedToCheatServer = atoi( s );
+	if ( !cl_connectedToCheatServer ) {
 		Cvar_SetCheatState();
 	}
 
@@ -410,6 +412,25 @@ void CL_SystemInfoChanged( void ) {
 		Cvar_Set( "fs_game", "" );
 	}
 	cl_connectedToPureServer = Cvar_VariableValue( "sv_pure" );
+}
+
+/*
+==================
+CL_ParseServerInfo
+==================
+*/
+static void CL_ParseServerInfo(void)
+{
+	const char *serverInfo;
+
+	serverInfo = cl.gameState.stringData
+		+ cl.gameState.stringOffsets[ CS_SERVERINFO ];
+
+	clc.sv_allowDownload = atoi(Info_ValueForKey(serverInfo,
+		"sv_allowDownload"));
+	Q_strncpyz(clc.sv_dlURL,
+		Info_ValueForKey(serverInfo, "sv_dlURL"),
+		sizeof(clc.sv_dlURL));
 }
 
 /*
@@ -478,6 +499,9 @@ void CL_ParseGamestate( msg_t *msg ) {
 	clc.clientNum = MSG_ReadLong(msg);
 	// read the checksum feed
 	clc.checksumFeed = MSG_ReadLong( msg );
+
+	// parse useful values out of CS_SERVERINFO
+	CL_ParseServerInfo();
 
 	// parse serverId and other cvars
 	CL_SystemInfoChanged();

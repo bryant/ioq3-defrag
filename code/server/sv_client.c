@@ -149,7 +149,6 @@ void SV_AuthorizeIpPacket( netadr_t from ) {
 	int		i;
 	char	*s;
 	char	*r;
-	char	ret[1024];
 
 	if ( !NET_CompareBaseAdr( from, svs.authorizeAddress ) ) {
 		Com_Printf( "SV_AuthorizeIpPacket: not from authorize server\n" );
@@ -195,8 +194,7 @@ void SV_AuthorizeIpPacket( netadr_t from ) {
 		if (!r) {
 			NET_OutOfBandPrint( NS_SERVER, svs.challenges[i].adr, "print\nAwaiting CD key authorization\n" );
 		} else {
-			sprintf(ret, "print\n%s\n", r);
-			NET_OutOfBandPrint( NS_SERVER, svs.challenges[i].adr, ret );
+			NET_OutOfBandPrint( NS_SERVER, svs.challenges[i].adr, "print\n%s\n", r);
 		}
 		// clear the challenge record so it won't timeout and let them through
 		Com_Memset( &svs.challenges[i], 0, sizeof( svs.challenges[i] ) );
@@ -207,8 +205,7 @@ void SV_AuthorizeIpPacket( netadr_t from ) {
 	if (!r) {
 		NET_OutOfBandPrint( NS_SERVER, svs.challenges[i].adr, "print\nSomeone is using this CD Key\n" );
 	} else {
-		sprintf(ret, "print\n%s\n", r);
-		NET_OutOfBandPrint( NS_SERVER, svs.challenges[i].adr, ret );
+		NET_OutOfBandPrint( NS_SERVER, svs.challenges[i].adr, "print\n%s\n", r );
 	}
 
 	// clear the challenge record so it won't timeout and let them through
@@ -241,6 +238,7 @@ void SV_DirectConnect( netadr_t from ) {
 	int			startIndex;
 	intptr_t		denied;
 	int			count;
+	char		*ip;
 
 	Com_DPrintf ("SVC_DirectConnect ()\n");
 
@@ -272,6 +270,19 @@ void SV_DirectConnect( netadr_t from ) {
 			break;
 		}
 	}
+	
+	// don't let "ip" overflow userinfo string
+	if ( NET_IsLocalAddress (from) )
+		ip = "localhost";
+	else
+		ip = (char *)NET_AdrToString( from );
+	if( ( strlen( ip ) + strlen( userinfo ) + 4 ) >= MAX_INFO_STRING ) {
+		NET_OutOfBandPrint( NS_SERVER, from,
+			"print\nUserinfo string length exceeded.  "
+			"Try removing setu cvars from your config.\n" );
+		return;
+	}
+	Info_SetValueForKey( userinfo, "ip", ip );
 
 	// see if the challenge is valid (LAN clients don't need to challenge)
 	if ( !NET_IsLocalAddress (from) ) {
@@ -288,8 +299,6 @@ void SV_DirectConnect( netadr_t from ) {
 			NET_OutOfBandPrint( NS_SERVER, from, "print\nNo or bad challenge for address.\n" );
 			return;
 		}
-		// force the IP key/value pair so the game can filter based on ip
-		Info_SetValueForKey( userinfo, "ip", NET_AdrToString( from ) );
 
 		ping = svs.time - svs.challenges[i].pingTime;
 		Com_Printf( "Client %i connecting with %i challenge ping\n", i, ping );
@@ -312,9 +321,6 @@ void SV_DirectConnect( netadr_t from ) {
 				return;
 			}
 		}
-	} else {
-		// force the "ip" info key to "localhost"
-		Info_SetValueForKey( userinfo, "ip", "localhost" );
 	}
 
 	newcl = &temp;
@@ -496,8 +502,6 @@ void SV_DropClient( client_t *drop, const char *reason ) {
 	// tell everyone why they got dropped
 	SV_SendServerCommand( NULL, "print \"%s" S_COLOR_WHITE " %s\n\"", drop->name, reason );
 
-	Com_DPrintf( "Going to CS_ZOMBIE for %s\n", drop->name );
-	drop->state = CS_ZOMBIE;		// become free in a few seconds
 
 	if (drop->download)	{
 		FS_FCloseFile( drop->download );
@@ -517,6 +521,9 @@ void SV_DropClient( client_t *drop, const char *reason ) {
 
 	// nuke user info
 	SV_SetUserinfo( drop - svs.clients, "" );
+	
+	Com_DPrintf( "Going to CS_ZOMBIE for %s\n", drop->name );
+	drop->state = CS_ZOMBIE;		// become free in a few seconds
 
 	// if this was the last client on the server, send a heartbeat
 	// to the master so it is known the server is empty
@@ -682,7 +689,7 @@ Abort a download if in progress
 */
 void SV_StopDownload_f( client_t *cl ) {
 	if (*cl->downloadName)
-		Com_DPrintf( "clientDownload: %d : file \"%s\" aborted\n", cl - svs.clients, cl->downloadName );
+		Com_DPrintf( "clientDownload: %d : file \"%s\" aborted\n", (int) (cl - svs.clients), cl->downloadName );
 
 	SV_CloseDownload( cl );
 }
@@ -713,11 +720,11 @@ void SV_NextDownload_f( client_t *cl )
 	int block = atoi( Cmd_Argv(1) );
 
 	if (block == cl->downloadClientBlock) {
-		Com_DPrintf( "clientDownload: %d : client acknowledge of block %d\n", cl - svs.clients, block );
+		Com_DPrintf( "clientDownload: %d : client acknowledge of block %d\n", (int) (cl - svs.clients), block );
 
 		// Find out if we are done.  A zero-length block indicates EOF
 		if (cl->downloadBlockSize[cl->downloadClientBlock % MAX_DOWNLOAD_WINDOW] == 0) {
-			Com_Printf( "clientDownload: %d : file \"%s\" completed\n", cl - svs.clients, cl->downloadName );
+			Com_Printf( "clientDownload: %d : file \"%s\" completed\n", (int) (cl - svs.clients), cl->downloadName );
 			SV_CloseDownload( cl );
 			return;
 		}
@@ -805,16 +812,18 @@ void SV_WriteDownloadToClient( client_t *cl , msg_t *msg )
 		}
 
 		// We open the file here
-		if ( !sv_allowDownload->integer || idPack || unreferenced ||
+		if ( !(sv_allowDownload->integer & DLF_ENABLE) ||
+			(sv_allowDownload->integer & DLF_NO_UDP) ||
+			idPack || unreferenced ||
 			( cl->downloadSize = FS_SV_FOpenFileRead( cl->downloadName, &cl->download ) ) <= 0 ) {
 			// cannot auto-download file
 			if(unreferenced)
 			{
-				Com_Printf("clientDownload: %d : \"%s\" is not referenced and cannot be downloaded.\n", cl - svs.clients, cl->downloadName);
+				Com_Printf("clientDownload: %d : \"%s\" is not referenced and cannot be downloaded.\n", (int) (cl - svs.clients), cl->downloadName);
 				Com_sprintf(errorMessage, sizeof(errorMessage), "File \"%s\" is not referenced and cannot be downloaded.", cl->downloadName);
 			}
 			else if (idPack) {
-				Com_Printf("clientDownload: %d : \"%s\" cannot download id pk3 files\n", cl - svs.clients, cl->downloadName);
+				Com_Printf("clientDownload: %d : \"%s\" cannot download id pk3 files\n", (int) (cl - svs.clients), cl->downloadName);
 				if (missionPack) {
 					Com_sprintf(errorMessage, sizeof(errorMessage), "Cannot autodownload Team Arena file \"%s\"\n"
 									"The Team Arena mission pack can be found in your local game store.", cl->downloadName);
@@ -822,8 +831,11 @@ void SV_WriteDownloadToClient( client_t *cl , msg_t *msg )
 				else {
 					Com_sprintf(errorMessage, sizeof(errorMessage), "Cannot autodownload id pk3 file \"%s\"", cl->downloadName);
 				}
-			} else if ( !sv_allowDownload->integer ) {
-				Com_Printf("clientDownload: %d : \"%s\" download disabled", cl - svs.clients, cl->downloadName);
+			}
+			else if ( !(sv_allowDownload->integer & DLF_ENABLE) ||
+				(sv_allowDownload->integer & DLF_NO_UDP) ) {
+
+				Com_Printf("clientDownload: %d : \"%s\" download disabled", (int) (cl - svs.clients), cl->downloadName);
 				if (sv_pure->integer) {
 					Com_sprintf(errorMessage, sizeof(errorMessage), "Could not download \"%s\" because autodownloading is disabled on the server.\n\n"
 										"You will need to get this file elsewhere before you "
@@ -837,7 +849,7 @@ void SV_WriteDownloadToClient( client_t *cl , msg_t *msg )
 			} else {
         // NOTE TTimo this is NOT supposed to happen unless bug in our filesystem scheme?
         //   if the pk3 is referenced, it must have been found somewhere in the filesystem
-				Com_Printf("clientDownload: %d : \"%s\" file not found on server\n", cl - svs.clients, cl->downloadName);
+				Com_Printf("clientDownload: %d : \"%s\" file not found on server\n", (int) (cl - svs.clients), cl->downloadName);
 				Com_sprintf(errorMessage, sizeof(errorMessage), "File \"%s\" not found on server for autodownloading.\n", cl->downloadName);
 			}
 			MSG_WriteByte( msg, svc_download );
@@ -849,7 +861,7 @@ void SV_WriteDownloadToClient( client_t *cl , msg_t *msg )
 			return;
 		}
  
-		Com_Printf( "clientDownload: %d : beginning \"%s\"\n", cl - svs.clients, cl->downloadName );
+		Com_Printf( "clientDownload: %d : beginning \"%s\"\n", (int) (cl - svs.clients), cl->downloadName );
 		
 		// Init
 		cl->downloadCurrentBlock = cl->downloadClientBlock = cl->downloadXmitBlock = 0;
@@ -958,7 +970,7 @@ void SV_WriteDownloadToClient( client_t *cl , msg_t *msg )
 			MSG_WriteData( msg, cl->downloadBlocks[curindex], cl->downloadBlockSize[curindex] );
 		}
 
-		Com_DPrintf( "clientDownload: %d : writing block %d\n", cl - svs.clients, cl->downloadXmitBlock );
+		Com_DPrintf( "clientDownload: %d : writing block %d\n", (int) (cl - svs.clients), cl->downloadXmitBlock );
 
 		// Move on to the next block
 		// It will get sent with next snap shot.  The rate will keep us in line.
@@ -1162,7 +1174,9 @@ into a more C friendly form.
 */
 void SV_UserinfoChanged( client_t *cl ) {
 	char	*val;
+	char	*ip;
 	int		i;
+	int	len;
 
 	// name for C code
 	Q_strncpyz( cl->name, Info_ValueForKey (cl->userinfo, "name"), sizeof(cl->name) );
@@ -1211,18 +1225,23 @@ void SV_UserinfoChanged( client_t *cl ) {
 	
 	// TTimo
 	// maintain the IP information
-	// this is set in SV_DirectConnect (directly on the server, not transmitted), may be lost when client updates it's userinfo
 	// the banning code relies on this being consistently present
-	val = Info_ValueForKey (cl->userinfo, "ip");
-	if (!val[0])
-	{
-		//Com_DPrintf("Maintain IP in userinfo for '%s'\n", cl->name);
-		if ( !NET_IsLocalAddress(cl->netchan.remoteAddress) )
-			Info_SetValueForKey( cl->userinfo, "ip", NET_AdrToString( cl->netchan.remoteAddress ) );
-		else
-			// force the "ip" info key to "localhost" for local clients
-			Info_SetValueForKey( cl->userinfo, "ip", "localhost" );
-	}
+	if( NET_IsLocalAddress(cl->netchan.remoteAddress) )
+		ip = "localhost";
+	else
+		ip = (char*)NET_AdrToString( cl->netchan.remoteAddress );
+
+	val = Info_ValueForKey( cl->userinfo, "ip" );
+	if( val[0] )
+		len = strlen( ip ) - strlen( val ) + strlen( cl->userinfo );
+	else
+		len = strlen( ip ) + 4 + strlen( cl->userinfo );
+
+	if( len >= MAX_INFO_STRING )
+		SV_DropClient( cl, "userinfo string length exceeded" );
+	else
+		Info_SetValueForKey( cl->userinfo, "ip", ip );
+
 }
 
 
@@ -1428,7 +1447,7 @@ static void SV_UserMove( client_t *cl, msg_t *msg, qboolean delta ) {
 		if (cl->state == CS_ACTIVE)
 		{
 			// we didn't get a cp yet, don't assume anything and just send the gamestate all over again
-			Com_DPrintf( "%s: didn't get cp command, resending gamestate\n", cl->name, cl->state );
+			Com_DPrintf( "%s: didn't get cp command, resending gamestate\n", cl->name);
 			SV_SendClientGameState( cl );
 		}
 		return;
@@ -1578,7 +1597,7 @@ void SV_ExecuteClientMessage( client_t *cl, msg_t *msg ) {
 	} else if ( c == clc_moveNoDelta ) {
 		SV_UserMove( cl, msg, qfalse );
 	} else if ( c != clc_EOF ) {
-		Com_Printf( "WARNING: bad command byte for client %i\n", cl - svs.clients );
+		Com_Printf( "WARNING: bad command byte for client %i\n", (int) (cl - svs.clients) );
 	}
 //	if ( msg->readcount != msg->cursize ) {
 //		Com_Printf( "WARNING: Junk at end of packet for client %i\n", cl - svs.clients );

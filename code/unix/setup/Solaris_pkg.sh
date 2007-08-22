@@ -5,7 +5,7 @@ MOUNT_DIR="../../.."
 
 # Solaris stuff
 PLATFORM=`uname|sed -e s/_.*//|tr '[:upper:]' '[:lower:]'`
-if [ "X`uname -m`" = "Xi386" ]; then
+if [ "X`uname -m`" = "Xi86pc" ]; then
 	ARCH=i386
 else
 	ARCH=sparc
@@ -18,7 +18,7 @@ BUILD_DATE="`/usr/bin/date '+%Y%m%d%H%M%S'`"
 SVNVERSION=/usr/local/bin/svnversion
 if [ -x /usr/local/bin/svnversion ]; then
 	SVN_BANNER=`/usr/local/bin/svnversion ${MOUNT_DIR}|sed -e 's/S$//' -e 's/M$//' `
-	BUILD_VERSION="1.34-rc3"
+	BUILD_VERSION="1.34-rc4"
 else
 	BUILD_VERSION="1.34-rc3"
 fi

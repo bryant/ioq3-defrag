@@ -86,6 +86,9 @@ keyname_t keynames[] =
 	{"F10", K_F10},
 	{"F11", K_F11},
 	{"F12", K_F12},
+	{"F13", K_F13},
+	{"F14", K_F14},
+	{"F15", K_F15},
 
 	{"INS", K_INS},
 	{"DEL", K_DEL},
@@ -175,6 +178,116 @@ keyname_t keynames[] =
 	{"PAUSE", K_PAUSE},
 	
 	{"SEMICOLON", ';'},	// because a raw semicolon seperates commands
+
+	{"WORLD_0", K_WORLD_0},
+	{"WORLD_1", K_WORLD_1},
+	{"WORLD_2", K_WORLD_2},
+	{"WORLD_3", K_WORLD_3},
+	{"WORLD_4", K_WORLD_4},
+	{"WORLD_5", K_WORLD_5},
+	{"WORLD_6", K_WORLD_6},
+	{"WORLD_7", K_WORLD_7},
+	{"WORLD_8", K_WORLD_8},
+	{"WORLD_9", K_WORLD_9},
+	{"WORLD_10", K_WORLD_10},
+	{"WORLD_11", K_WORLD_11},
+	{"WORLD_12", K_WORLD_12},
+	{"WORLD_13", K_WORLD_13},
+	{"WORLD_14", K_WORLD_14},
+	{"WORLD_15", K_WORLD_15},
+	{"WORLD_16", K_WORLD_16},
+	{"WORLD_17", K_WORLD_17},
+	{"WORLD_18", K_WORLD_18},
+	{"WORLD_19", K_WORLD_19},
+	{"WORLD_20", K_WORLD_20},
+	{"WORLD_21", K_WORLD_21},
+	{"WORLD_22", K_WORLD_22},
+	{"WORLD_23", K_WORLD_23},
+	{"WORLD_24", K_WORLD_24},
+	{"WORLD_25", K_WORLD_25},
+	{"WORLD_26", K_WORLD_26},
+	{"WORLD_27", K_WORLD_27},
+	{"WORLD_28", K_WORLD_28},
+	{"WORLD_29", K_WORLD_29},
+	{"WORLD_30", K_WORLD_30},
+	{"WORLD_31", K_WORLD_31},
+	{"WORLD_32", K_WORLD_32},
+	{"WORLD_33", K_WORLD_33},
+	{"WORLD_34", K_WORLD_34},
+	{"WORLD_35", K_WORLD_35},
+	{"WORLD_36", K_WORLD_36},
+	{"WORLD_37", K_WORLD_37},
+	{"WORLD_38", K_WORLD_38},
+	{"WORLD_39", K_WORLD_39},
+	{"WORLD_40", K_WORLD_40},
+	{"WORLD_41", K_WORLD_41},
+	{"WORLD_42", K_WORLD_42},
+	{"WORLD_43", K_WORLD_43},
+	{"WORLD_44", K_WORLD_44},
+	{"WORLD_45", K_WORLD_45},
+	{"WORLD_46", K_WORLD_46},
+	{"WORLD_47", K_WORLD_47},
+	{"WORLD_48", K_WORLD_48},
+	{"WORLD_49", K_WORLD_49},
+	{"WORLD_50", K_WORLD_50},
+	{"WORLD_51", K_WORLD_51},
+	{"WORLD_52", K_WORLD_52},
+	{"WORLD_53", K_WORLD_53},
+	{"WORLD_54", K_WORLD_54},
+	{"WORLD_55", K_WORLD_55},
+	{"WORLD_56", K_WORLD_56},
+	{"WORLD_57", K_WORLD_57},
+	{"WORLD_58", K_WORLD_58},
+	{"WORLD_59", K_WORLD_59},
+	{"WORLD_60", K_WORLD_60},
+	{"WORLD_61", K_WORLD_61},
+	{"WORLD_62", K_WORLD_62},
+	{"WORLD_63", K_WORLD_63},
+	{"WORLD_64", K_WORLD_64},
+	{"WORLD_65", K_WORLD_65},
+	{"WORLD_66", K_WORLD_66},
+	{"WORLD_67", K_WORLD_67},
+	{"WORLD_68", K_WORLD_68},
+	{"WORLD_69", K_WORLD_69},
+	{"WORLD_70", K_WORLD_70},
+	{"WORLD_71", K_WORLD_71},
+	{"WORLD_72", K_WORLD_72},
+	{"WORLD_73", K_WORLD_73},
+	{"WORLD_74", K_WORLD_74},
+	{"WORLD_75", K_WORLD_75},
+	{"WORLD_76", K_WORLD_76},
+	{"WORLD_77", K_WORLD_77},
+	{"WORLD_78", K_WORLD_78},
+	{"WORLD_79", K_WORLD_79},
+	{"WORLD_80", K_WORLD_80},
+	{"WORLD_81", K_WORLD_81},
+	{"WORLD_82", K_WORLD_82},
+	{"WORLD_83", K_WORLD_83},
+	{"WORLD_84", K_WORLD_84},
+	{"WORLD_85", K_WORLD_85},
+	{"WORLD_86", K_WORLD_86},
+	{"WORLD_87", K_WORLD_87},
+	{"WORLD_88", K_WORLD_88},
+	{"WORLD_89", K_WORLD_89},
+	{"WORLD_90", K_WORLD_90},
+	{"WORLD_91", K_WORLD_91},
+	{"WORLD_92", K_WORLD_92},
+	{"WORLD_93", K_WORLD_93},
+	{"WORLD_94", K_WORLD_94},
+	{"WORLD_95", K_WORLD_95},
+
+	{"WINDOWS", K_SUPER},
+	{"COMPOSE", K_COMPOSE},
+	{"MODE", K_MODE},
+	{"HELP", K_HELP},
+	{"PRINT", K_PRINT},
+	{"SYSREQ", K_SYSREQ},
+	{"SCROLLOCK", K_SCROLLOCK },
+	{"BREAK", K_BREAK},
+	{"MENU", K_MENU},
+	{"POWER", K_POWER},
+	{"EURO", K_EURO},
+	{"UNDO", K_UNDO},
 
 	{NULL,0}
 };
@@ -669,7 +782,7 @@ Key_IsDown
 ===================
 */
 qboolean Key_IsDown( int keynum ) {
-	if ( keynum == -1 ) {
+	if ( keynum < 0 || keynum >= MAX_KEYS ) {
 		return qfalse;
 	}
 
@@ -751,7 +864,7 @@ char *Key_KeynumToString( int keynum ) {
 		return "<KEY NOT FOUND>";
 	}
 
-	if ( keynum < 0 || keynum > 255 ) {
+	if ( keynum < 0 || keynum >= MAX_KEYS ) {
 		return "<OUT OF RANGE>";
 	}
 
@@ -789,7 +902,7 @@ Key_SetBinding
 ===================
 */
 void Key_SetBinding( int keynum, const char *binding ) {
-	if ( keynum == -1 ) {
+	if ( keynum < 0 || keynum >= MAX_KEYS ) {
 		return;
 	}
 
@@ -813,7 +926,7 @@ Key_GetBinding
 ===================
 */
 char *Key_GetBinding( int keynum ) {
-	if ( keynum == -1 ) {
+	if ( keynum < 0 || keynum >= MAX_KEYS ) {
 		return "";
 	}
 
@@ -830,7 +943,7 @@ int Key_GetKey(const char *binding) {
   int i;
 
   if (binding) {
-  	for (i=0 ; i<256 ; i++) {
+  	for (i=0 ; i < MAX_KEYS ; i++) {
       if (keys[i].binding && Q_stricmp(binding, keys[i].binding) == 0) {
         return i;
       }
@@ -873,7 +986,7 @@ void Key_Unbindall_f (void)
 {
 	int		i;
 	
-	for (i=0 ; i<256 ; i++)
+	for (i=0 ; i < MAX_KEYS; i++)
 		if (keys[i].binding)
 			Key_SetBinding (i, "");
 }
@@ -936,7 +1049,7 @@ void Key_WriteBindings( fileHandle_t f ) {
 
 	FS_Printf (f, "unbindall\n" );
 
-	for (i=0 ; i<256 ; i++) {
+	for (i=0 ; i<MAX_KEYS ; i++) {
 		if (keys[i].binding && keys[i].binding[0] ) {
 			FS_Printf (f, "bind %s \"%s\"\n", Key_KeynumToString(i), keys[i].binding);
 
@@ -955,7 +1068,7 @@ Key_Bindlist_f
 void Key_Bindlist_f( void ) {
 	int		i;
 
-	for ( i = 0 ; i < 256 ; i++ ) {
+	for ( i = 0 ; i < MAX_KEYS ; i++ ) {
 		if ( keys[i].binding && keys[i].binding[0] ) {
 			Com_Printf( "%s \"%s\"\n", Key_KeynumToString(i), keys[i].binding );
 		}
@@ -980,7 +1093,7 @@ void CL_InitKeyCommands( void ) {
 CL_AddKeyUpCommands
 ===================
 */
-void CL_AddKeyUpCommands( int key, char *kb ) {
+void CL_AddKeyUpCommands( int key, char *kb, unsigned time) {
 	int i;
 	char button[1024], *buttonPtr;
 	char	cmd[1024];
@@ -1066,7 +1179,8 @@ void CL_KeyEvent (int key, qboolean down, unsigned time) {
 #endif
 
 	// console key is hardcoded, so the user can never unbind it
-	if (key == '`' || key == '~') {
+	if (key == '`' || key == '~' ||
+		( key == K_ESCAPE && keys[K_SHIFT].down ) ) {
 		if (!down) {
 			return;
 		}
@@ -1126,7 +1240,7 @@ void CL_KeyEvent (int key, qboolean down, unsigned time) {
 	if (!down) {
 		kb = keys[key].binding;
 
-		CL_AddKeyUpCommands( key, kb );
+		CL_AddKeyUpCommands( key, kb, time );
 
 		if ( cls.keyCatchers & KEYCATCH_UI && uivm ) {
 			VM_Call( uivm, UI_KEY_EVENT, key, down );
@@ -1258,8 +1372,10 @@ void Key_ClearStates (void)
 }
 
 // This must not exceed MAX_CMD_LINE
-#define MAX_CONSOLE_SAVE_BUFFER 1024
-static char consoleSaveBuffer[ MAX_CONSOLE_SAVE_BUFFER ];
+#define			MAX_CONSOLE_SAVE_BUFFER	1024
+#define			CONSOLE_HISTORY_FILE    "q3history"
+static char	consoleSaveBuffer[ MAX_CONSOLE_SAVE_BUFFER ];
+static int	consoleSaveBufferSize = 0;
 
 /*
 ================
@@ -1270,51 +1386,63 @@ Load the console history from cl_consoleHistory
 */
 void CL_LoadConsoleHistory( void )
 {
-	char		*token, *text_p;
-	int			i, numChars, numLines = 0;
-	cvar_t	*cv;
+	char					*token, *text_p;
+	int						i, numChars, numLines = 0;
+	fileHandle_t	f;
 
-	cv = Cvar_Get( "cl_consoleHistory", "", CVAR_ARCHIVE|CVAR_ROM );
-	Q_strncpyz( consoleSaveBuffer, cv->string, MAX_CONSOLE_SAVE_BUFFER );
-
-	text_p = consoleSaveBuffer;
-
-	for( i = COMMAND_HISTORY - 1; i >= 0; i-- )
+	consoleSaveBufferSize = FS_FOpenFileRead( CONSOLE_HISTORY_FILE, &f, qfalse );
+	if( !f )
 	{
-		if( !*( token = COM_Parse( &text_p ) ) )
-			break;
-
-		historyEditLines[ i ].cursor = atoi( token );
-
-		if( !*( token = COM_Parse( &text_p ) ) )
-			break;
-
-		historyEditLines[ i ].scroll = atoi( token );
-
-		if( !*( token = COM_Parse( &text_p ) ) )
-			break;
-
-		numChars = atoi( token );
-		text_p++;
-		if( numChars > ( strlen( consoleSaveBuffer ) -  ( text_p - consoleSaveBuffer ) ) )
-		{
-			Com_DPrintf( S_COLOR_YELLOW "WARNING: probable corrupt history\n" );
-			break;
-		}
-		Com_Memcpy( historyEditLines[ i ].buffer,
-				text_p, numChars );
-		historyEditLines[ i ].buffer[ numChars ] = '\0';
-		text_p += numChars;
-
-		numLines++;
+		Com_Printf( "Couldn't read %s.\n", CONSOLE_HISTORY_FILE );
+		return;
 	}
 
-	memmove( &historyEditLines[ 0 ], &historyEditLines[ i + 1 ],
-			numLines * sizeof( field_t ) );
-	for( i = numLines; i < COMMAND_HISTORY; i++ )
-		Field_Clear( &historyEditLines[ i ] );
+	if( consoleSaveBufferSize <= MAX_CONSOLE_SAVE_BUFFER &&
+			FS_Read( consoleSaveBuffer, consoleSaveBufferSize, f ) == consoleSaveBufferSize )
+	{
+		text_p = consoleSaveBuffer;
 
-	historyLine = nextHistoryLine = numLines;
+		for( i = COMMAND_HISTORY - 1; i >= 0; i-- )
+		{
+			if( !*( token = COM_Parse( &text_p ) ) )
+				break;
+
+			historyEditLines[ i ].cursor = atoi( token );
+
+			if( !*( token = COM_Parse( &text_p ) ) )
+				break;
+
+			historyEditLines[ i ].scroll = atoi( token );
+
+			if( !*( token = COM_Parse( &text_p ) ) )
+				break;
+
+			numChars = atoi( token );
+			text_p++;
+			if( numChars > ( strlen( consoleSaveBuffer ) -	( text_p - consoleSaveBuffer ) ) )
+			{
+				Com_DPrintf( S_COLOR_YELLOW "WARNING: probable corrupt history\n" );
+				break;
+			}
+			Com_Memcpy( historyEditLines[ i ].buffer,
+					text_p, numChars );
+			historyEditLines[ i ].buffer[ numChars ] = '\0';
+			text_p += numChars;
+
+			numLines++;
+		}
+
+		memmove( &historyEditLines[ 0 ], &historyEditLines[ i + 1 ],
+				numLines * sizeof( field_t ) );
+		for( i = numLines; i < COMMAND_HISTORY; i++ )
+			Field_Clear( &historyEditLines[ i ] );
+
+		historyLine = nextHistoryLine = numLines;
+	}
+	else
+		Com_Printf( "Couldn't read %s.\n", CONSOLE_HISTORY_FILE );
+
+	FS_FCloseFile( f );
 }
 
 /*
@@ -1327,8 +1455,9 @@ so that it persists across invocations of q3
 */
 void CL_SaveConsoleHistory( void )
 {
-	int i;
-	int	lineLength, saveBufferLength, additionalLength;
+	int						i;
+	int						lineLength, saveBufferLength, additionalLength;
+	fileHandle_t	f;
 
 	consoleSaveBuffer[ 0 ] = '\0';
 
@@ -1340,8 +1469,8 @@ void CL_SaveConsoleHistory( void )
 			lineLength = strlen( historyEditLines[ i ].buffer );
 			saveBufferLength = strlen( consoleSaveBuffer );
 
-			//ICK "seta cl_consoleHistory " + "%d %d %d  " = 23 + 13 = 36
-			additionalLength = lineLength + 36;
+			//ICK
+			additionalLength = lineLength + strlen( "999 999 999  " );
 
 			if( saveBufferLength + additionalLength < MAX_CONSOLE_SAVE_BUFFER )
 			{
@@ -1359,5 +1488,17 @@ void CL_SaveConsoleHistory( void )
 	}
 	while( i != ( nextHistoryLine - 1 ) % COMMAND_HISTORY );
 
-	Cvar_Set( "cl_consoleHistory", consoleSaveBuffer );
+	consoleSaveBufferSize = strlen( consoleSaveBuffer );
+
+	f = FS_FOpenFileWrite( CONSOLE_HISTORY_FILE );
+	if( !f )
+	{
+		Com_Printf( "Couldn't write %s.\n", CONSOLE_HISTORY_FILE );
+		return;
+	}
+
+	if( FS_Write( consoleSaveBuffer, consoleSaveBufferSize, f ) < consoleSaveBufferSize )
+		Com_Printf( "Couldn't write %s.\n", CONSOLE_HISTORY_FILE );
+
+	FS_FCloseFile( f );
 }

@@ -100,6 +100,18 @@ ifndef USE_OPENAL_DLOPEN
 USE_OPENAL_DLOPEN=0
 endif
 
+ifndef USE_CURL
+USE_CURL=1
+endif
+
+ifndef USE_CURL_DLOPEN
+  ifeq ($(PLATFORM),mingw32)
+    USE_CURL_DLOPEN=0
+  else
+    USE_CURL_DLOPEN=1
+  endif
+endif
+
 ifndef USE_CODEC_VORBIS
 USE_CODEC_VORBIS=0
 endif
@@ -145,16 +157,12 @@ endif
 #############################################################################
 
 ## Defaults
-VM_PPC=
-
 LIB=lib
 
 INSTALL=install
 MKDIR=mkdir
 
 ifeq ($(PLATFORM),linux)
-
-  CC=gcc
 
   ifeq ($(ARCH),alpha)
     ARCH=axp
@@ -181,15 +189,21 @@ ifeq ($(PLATFORM),linux)
     endif
   endif
 
+  ifeq ($(USE_CURL),1)
+    BASE_CFLAGS += -DUSE_CURL=1
+    ifeq ($(USE_CURL_DLOPEN),1)
+      BASE_CFLAGS += -DUSE_CURL_DLOPEN=1
+    endif
+  endif
+
   ifeq ($(USE_CODEC_VORBIS),1)
     BASE_CFLAGS += -DUSE_CODEC_VORBIS=1
   endif
 
   ifeq ($(USE_SDL),1)
     BASE_CFLAGS += -DUSE_SDL_VIDEO=1 -DUSE_SDL_SOUND=1 $(shell sdl-config --cflags)
-    GL_CFLAGS =
   else
-    GL_CFLAGS = -I/usr/X11R6/include
+    BASE_CFLAGS += -I/usr/X11R6/include
   endif
 
   OPTIMIZE = -O3 -ffast-math -funroll-loops -fomit-frame-pointer
@@ -209,9 +223,7 @@ ifeq ($(PLATFORM),linux)
   else
   ifeq ($(ARCH),ppc)
     BASE_CFLAGS += -maltivec
-    ifneq ($(VM_PPC),)
-      HAVE_VM_COMPILED=true
-    endif
+    HAVE_VM_COMPILED=false
   endif
   endif
   endif
@@ -242,6 +254,12 @@ ifeq ($(PLATFORM),linux)
       CLIENT_LDFLAGS += -lopenal
     endif
   endif
+ 
+  ifeq ($(USE_CURL),1)
+    ifneq ($(USE_CURL_DLOPEN),1)
+      CLIENT_LDFLAGS += -lcurl
+    endif
+  endif
 
   ifeq ($(USE_CODEC_VORBIS),1)
     CLIENT_LDFLAGS += -lvorbisfile -lvorbis -logg
@@ -260,8 +278,6 @@ else # ifeq Linux
 #############################################################################
 
 ifeq ($(PLATFORM),darwin)
-  CC=gcc
-  VM_PPC=vm_ppc_new
   HAVE_VM_COMPILED=true
   BASE_CFLAGS=
   CLIENT_LDFLAGS=
@@ -281,7 +297,7 @@ ifeq ($(PLATFORM),darwin)
     LDFLAGS += -arch ppc \
       -L/Developer/SDKs/MacOSX10.2.8.sdk/usr/lib/gcc/darwin/3.3 \
       -F/Developer/SDKs/MacOSX10.2.8.sdk/System/Library/Frameworks \
-      -Wl,-syslibroot,/Developer/SDKs/MacOSX10.2.8.sdk,-m 
+      -Wl,-syslibroot,/Developer/SDKs/MacOSX10.2.8.sdk,-m
     ARCH=ppc
 
     # OS X 10.2 sdk lacks dlopen() so ded would need libSDL anyway
@@ -289,7 +305,7 @@ ifeq ($(PLATFORM),darwin)
 
     # because of a problem with linking on 10.2 this will generate multiply
     # defined symbol errors.  The errors can be turned into warnings with
-    # the -m linker flag, but you can't shut up the warnings 
+    # the -m linker flag, but you can't shut up the warnings
     USE_OPENAL_DLOPEN=1
   else
   ifeq ($(BUILD_MACOSX_UB),i386)
@@ -307,7 +323,7 @@ ifeq ($(PLATFORM),darwin)
     ARCH=i386
     BUILD_SERVER=0
   else
-    # for whatever reason using the headers in the MacOSX SDKs tend to throw 
+    # for whatever reason using the headers in the MacOSX SDKs tend to throw
     # errors even though they are identical to the system ones which don't
     # therefore we shut up warning flags when running the universal build
     # script as much as possible.
@@ -317,9 +333,6 @@ ifeq ($(PLATFORM),darwin)
 
   ifeq ($(ARCH),ppc)
     OPTIMIZE += -faltivec -O3
-    # Carbon is required on PPC only to make a call to MakeDataExecutable
-    # in the PPC vm (should be a better non-Carbon way).
-    LDFLAGS += -framework Carbon
   endif
   ifeq ($(ARCH),i386)
     OPTIMIZE += -march=prescott -mfpmath=sse
@@ -342,6 +355,15 @@ ifeq ($(PLATFORM),darwin)
     endif
   endif
 
+  ifeq ($(USE_CURL),1)
+    BASE_CFLAGS += -DUSE_CURL=1
+    ifneq ($(USE_CURL_DLOPEN),1)
+      CLIENT_LDFLAGS += -lcurl
+    else
+      BASE_CFLAGS += -DUSE_CURL_DLOPEN=1
+    endif
+  endif
+
   ifeq ($(USE_CODEC_VORBIS),1)
     BASE_CFLAGS += -DUSE_CODEC_VORBIS=1
     CLIENT_LDFLAGS += -lvorbisfile -lvorbis -logg
@@ -350,12 +372,11 @@ ifeq ($(PLATFORM),darwin)
   ifeq ($(USE_SDL),1)
     BASE_CFLAGS += -DUSE_SDL_VIDEO=1 -DUSE_SDL_SOUND=1 -D_THREAD_SAFE=1 \
       -I$(SDLHDIR)/include
-    GL_CFLAGS =
     # We copy sdlmain before ranlib'ing it so that subversion doesn't think
     #  the file has been modified by each build.
     LIBSDLMAIN=$(B)/libSDLmain.a
     LIBSDLMAINSRC=$(LIBSDIR)/macosx/libSDLmain.a
-    CLIENT_LDFLAGS += -framework Cocoa -framework OpenGL \
+    CLIENT_LDFLAGS += -framework Cocoa -framework IOKit -framework OpenGL \
       $(LIBSDIR)/macosx/libSDL-1.2.0.dylib
   else
     # !!! FIXME: frameworks: OpenGL, Carbon, etc...
@@ -387,8 +408,9 @@ else # ifeq darwin
 
 ifeq ($(PLATFORM),mingw32)
 
-  CC=gcc
-  WINDRES=windres
+ifndef WINDRES
+WINDRES=windres
+endif
 
   ARCH=x86
 
@@ -398,12 +420,16 @@ ifeq ($(PLATFORM),mingw32)
     BASE_CFLAGS += -DUSE_OPENAL=1 -DUSE_OPENAL_DLOPEN=1
   endif
 
+  ifeq ($(USE_CURL),1)
+    BASE_CFLAGS += -DUSE_CURL=1
+    ifneq ($(USE_CURL_DLOPEN),1)
+      BASE_CFLAGS += -DCURL_STATICLIB
+    endif
+  endif
+
   ifeq ($(USE_CODEC_VORBIS),1)
     BASE_CFLAGS += -DUSE_CODEC_VORBIS=1
   endif
-
-  GL_CFLAGS =
-  MINGW_CFLAGS = -DDONT_TYPEDEF_INT32
 
   OPTIMIZE = -O3 -march=i586 -fomit-frame-pointer -ffast-math -falign-loops=2 \
     -funroll-loops -falign-jumps=2 -falign-functions=2 -fstrength-reduce
@@ -422,6 +448,12 @@ ifeq ($(PLATFORM),mingw32)
 
   LDFLAGS= -mwindows -lwsock32 -lgdi32 -lwinmm -lole32
   CLIENT_LDFLAGS=
+
+  ifeq ($(USE_CURL),1)
+    ifneq ($(USE_CURL_DLOPEN),1)
+      CLIENT_LDFLAGS += $(LIBSDIR)/win32/libcurl.a
+    endif
+  endif
 
   ifeq ($(USE_CODEC_VORBIS),1)
     CLIENT_LDFLAGS += -lvorbisfile -lvorbis -logg
@@ -451,9 +483,8 @@ ifeq ($(PLATFORM),freebsd)
   endif #alpha test
 
 
-  BASE_CFLAGS = -Wall -fno-strict-aliasing -Wimplicit -Wstrict-prototypes
-
-  GL_CFLAGS = -I/usr/X11R6/include
+  BASE_CFLAGS = -Wall -fno-strict-aliasing -Wimplicit -Wstrict-prototypes \
+                -I/usr/X11R6/include
 
   DEBUG_CFLAGS=$(BASE_CFLAGS) -g
 
@@ -473,13 +504,11 @@ ifeq ($(PLATFORM),freebsd)
   endif
 
   ifeq ($(ARCH),axp)
-    CC=gcc
     BASE_CFLAGS += -DNO_VM_COMPILED
     RELEASE_CFLAGS=$(BASE_CFLAGS) -DNDEBUG -O3 -ffast-math -funroll-loops \
       -fomit-frame-pointer -fexpensive-optimizations
   else
   ifeq ($(ARCH),i386)
-    CC=gcc
     RELEASE_CFLAGS=$(BASE_CFLAGS) -DNDEBUG -O3 -mtune=pentiumpro \
       -march=pentium -fomit-frame-pointer -pipe -ffast-math \
       -falign-loops=2 -falign-jumps=2 -falign-functions=2 \
@@ -529,7 +558,6 @@ ifeq ($(PLATFORM),netbsd)
     ARCH=i386
   endif
 
-  CC=gcc
   LDFLAGS=-lm
   SHLIBEXT=so
   SHLIBCFLAGS=-fPIC
@@ -556,7 +584,6 @@ ifeq ($(PLATFORM),irix)
 
   ARCH=mips  #default to MIPS
 
-  CC=cc
   BASE_CFLAGS=-Dstricmp=strcasecmp -Xcpluscomm -woff 1185 -mips3 \
     -nostdinc -I. -I$(ROOT)/usr/include -DNO_VM_COMPILED
   RELEASE_CFLAGS=$(BASE_CFLAGS) -O3
@@ -599,9 +626,8 @@ ifeq ($(PLATFORM),sunos)
 
   ifeq ($(USE_SDL),1)
     BASE_CFLAGS += -DUSE_SDL_SOUND=1 $(shell sdl-config --cflags)
-    GL_CFLAGS =
   else
-    GL_CFLAGS = -I/usr/openwin/include
+    BASE_CFLAGS += -I/usr/openwin/include
   endif
 
   OPTIMIZE = -O3 -ffast-math -funroll-loops
@@ -611,13 +637,20 @@ ifeq ($(PLATFORM),sunos)
       -falign-jumps=2 -falign-functions=2 -fstrength-reduce \
       -mtune=ultrasparc -mv8plus -mno-faster-structs \
       -funroll-loops
-    BASE_CFLAGS += -DNO_VM_COMPILED
   else
   ifeq ($(ARCH),i386)
-    OPTIMIZE = -O3 -march=i586  -ffast-math \
-      -falign-loops=2 -falign-jumps=2 -falign-functions=2 \
-      -funroll-loops -fstrength-reduce
+    OPTIMIZE = -O3 -march=i586 -fomit-frame-pointer -ffast-math \
+      -funroll-loops -falign-loops=2 -falign-jumps=2 \
+      -falign-functions=2 -fstrength-reduce
+    HAVE_VM_COMPILED=true
+    BASE_CFLAGS += -m32
+    LDFLAGS += -m32
+    BASE_CFLAGS += -I/usr/X11/include/NVIDIA
   endif
+  endif
+
+  ifneq ($(HAVE_VM_COMPILED),true)
+    BASE_CFLAGS += -DNO_VM_COMPILED
   endif
 
   DEBUG_CFLAGS = $(BASE_CFLAGS) -ggdb -O0
@@ -639,18 +672,11 @@ ifeq ($(PLATFORM),sunos)
     CLIENT_LDFLAGS=-L/usr/openwin/$(LIB) -L/usr/X11/lib -lGLU -lX11 -lXext
   endif
 
-  ifeq ($(ARCH),i386)
-    # Solarix x86 make ...
-    BASE_CFLAGS += -m32
-    LDFLAGS+=-m32
-  endif
-
 else # ifeq sunos
 
 #############################################################################
 # SETUP AND BUILD -- GENERIC
 #############################################################################
-  CC=cc
   BASE_CFLAGS=-DNO_VM_COMPILED
   DEBUG_CFLAGS=$(BASE_CFLAGS) -g
   RELEASE_CFLAGS=$(BASE_CFLAGS) -DNDEBUG -O3
@@ -698,8 +724,7 @@ ifneq ($(BUILD_GAME_QVM),0)
       $(B)/baseq3/vm/ui.qvm \
       $(B)/missionpack/vm/qagame.qvm \
       $(B)/missionpack/vm/cgame.qvm \
-      $(B)/missionpack/vm/ui.qvm \
-      qvmdeps
+      $(B)/missionpack/vm/ui.qvm
   endif
 endif
 
@@ -716,51 +741,99 @@ ifeq ($(USE_LOCAL_HEADERS),1)
 endif
 
 ifeq ($(GENERATE_DEPENDENCIES),1)
-  ifeq ($(CC),gcc)
-    DEPEND_CFLAGS=-MMD
-  endif
+  BASE_CFLAGS += -MMD
 endif
 
 ifeq ($(USE_SVN),1)
   BASE_CFLAGS += -DSVN_VERSION=\\\"$(SVN_VERSION)\\\"
 endif
 
-DO_CC=$(CC) $(NOTSHLIBCFLAGS) $(CFLAGS) -o $@ -c $<
-DO_SMP_CC=$(CC) $(NOTSHLIBCFLAGS) $(CFLAGS) -DSMP -o $@ -c $<
-DO_BOT_CC=$(CC) $(NOTSHLIBCFLAGS) $(CFLAGS) $(BOTCFLAGS) -DBOTLIB -o $@ -c $<   # $(SHLIBCFLAGS) # bk001212
-DO_DEBUG_CC=$(CC) $(NOTSHLIBCFLAGS) $(DEBUG_CFLAGS) -o $@ -c $<
-DO_SHLIB_CC=$(CC) $(CFLAGS) $(SHLIBCFLAGS) -o $@ -c $<
-DO_SHLIB_DEBUG_CC=$(CC) $(DEBUG_CFLAGS) $(SHLIBCFLAGS) -o $@ -c $<
-DO_AS=$(CC) $(CFLAGS) -DELF -x assembler-with-cpp -o $@ -c $<
-DO_DED_CC=$(CC) $(NOTSHLIBCFLAGS) -DDEDICATED $(CFLAGS) -o $@ -c $<
-DO_WINDRES=$(WINDRES) -i $< -o $@
+define DO_CC       
+@echo "CC $<"
+@$(CC) $(NOTSHLIBCFLAGS) $(CFLAGS) -o $@ -c $<
+endef
+
+define DO_SMP_CC
+@echo "SMP_CC $<"
+@$(CC) $(NOTSHLIBCFLAGS) $(CFLAGS) -DSMP -o $@ -c $<
+endef
+
+define DO_BOT_CC
+@echo "BOT_CC $<"
+@$(CC) $(NOTSHLIBCFLAGS) $(CFLAGS) $(BOTCFLAGS) -DBOTLIB -o $@ -c $<
+endef
+
+ifeq ($(GENERATE_DEPENDENCIES),1)
+  DO_QVM_DEP=cat $(@:%.o=%.d) | sed -e 's/\.o/\.asm/g' >> $(@:%.o=%.d)
+endif
+
+define DO_SHLIB_CC
+@echo "SHLIB_CC $<"
+@$(CC) $(CFLAGS) $(SHLIBCFLAGS) -o $@ -c $<
+@$(DO_QVM_DEP)
+endef
+
+define DO_SHLIB_CC_MISSIONPACK
+@echo "SHLIB_CC_MISSIONPACK $<"
+@$(CC) -DMISSIONPACK $(CFLAGS) $(SHLIBCFLAGS) -o $@ -c $<
+@$(DO_QVM_DEP)
+endef
+
+define DO_AS
+@echo "AS $<"
+@$(CC) $(CFLAGS) -DELF -x assembler-with-cpp -o $@ -c $<
+endef
+
+define DO_DED_CC
+@echo "DED_CC $<"
+@$(CC) $(NOTSHLIBCFLAGS) -DDEDICATED $(CFLAGS) -o $@ -c $<
+endef
+
+define DO_WINDRES
+@echo "WINDRES $<"
+@$(WINDRES) -i $< -o $@
+endef
+
 
 #############################################################################
 # MAIN TARGETS
 #############################################################################
 
-default:build_release
+default: release
+all: debug release
 
-debug: build_debug
-release: build_release
+debug:
+	@$(MAKE) targets B=$(BD) CFLAGS="$(CFLAGS) $(DEBUG_CFLAGS)"
 
-build_debug: B=$(BD)
-build_debug: makedirs tools
-	$(MAKE)  targets B=$(BD) CFLAGS="$(CFLAGS) $(DEBUG_CFLAGS) $(DEPEND_CFLAGS)"
+release:
+	@$(MAKE) targets B=$(BR) CFLAGS="$(CFLAGS) $(RELEASE_CFLAGS)"
 
-build_release: B=$(BR)
-build_release: makedirs tools
-	$(MAKE)  targets B=$(BR) CFLAGS="$(CFLAGS) $(RELEASE_CFLAGS) $(DEPEND_CFLAGS)"
-
-#Build both debug and release builds
-all:build_debug build_release
-
-targets: $(TARGETS)
+# Create the build directories and tools, print out
+# an informational message, then start building
+targets: makedirs tools
+	@echo ""
+	@echo "Building ioquake3 in $(B):"
+	@echo "  CC: $(CC)"
+	@echo ""
+	@echo "  CFLAGS:"
+	@for i in $(CFLAGS); \
+	do \
+		echo "    $$i"; \
+	done
+	@echo ""
+	@echo "  Output:"
+	@for i in $(TARGETS); \
+	do \
+		echo "    $$i"; \
+	done
+	@echo ""
+	@$(MAKE) $(TARGETS)
 
 makedirs:
 	@if [ ! -d $(BUILD_DIR) ];then $(MKDIR) $(BUILD_DIR);fi
 	@if [ ! -d $(B) ];then $(MKDIR) $(B);fi
 	@if [ ! -d $(B)/client ];then $(MKDIR) $(B)/client;fi
+	@if [ ! -d $(B)/clientsmp ];then $(MKDIR) $(B)/clientsmp;fi
 	@if [ ! -d $(B)/ded ];then $(MKDIR) $(B)/ded;fi
 	@if [ ! -d $(B)/baseq3 ];then $(MKDIR) $(B)/baseq3;fi
 	@if [ ! -d $(B)/baseq3/cgame ];then $(MKDIR) $(B)/baseq3/cgame;fi
@@ -784,14 +857,23 @@ Q3ASM=$(TOOLSDIR)/q3asm$(BINEXT)
 
 ifeq ($(CROSS_COMPILING),1)
 tools:
-	echo QVM tools not built when cross-compiling
+	@echo QVM tools not built when cross-compiling
 else
 tools:
 	$(MAKE) -C $(TOOLSDIR)/lcc install
 	$(MAKE) -C $(TOOLSDIR)/asm install
 endif
 
-DO_Q3LCC=$(Q3LCC) -o $@ $<
+define DO_Q3LCC
+@echo "Q3LCC $<"
+@$(Q3LCC) -o $@ $<
+endef
+
+define DO_Q3LCC_MISSIONPACK
+@echo "Q3LCC_MISSIONPACK $<"
+@$(Q3LCC) -DMISSIONPACK -o $@ $<
+endef
+
 
 #############################################################################
 # CLIENT/SERVER
@@ -839,6 +921,8 @@ Q3OBJ = \
   \
   $(B)/client/qal.o \
   $(B)/client/snd_openal.o \
+  \
+  $(B)/client/cl_curl.o \
   \
   $(B)/client/sv_bot.o \
   $(B)/client/sv_ccmds.o \
@@ -968,10 +1052,10 @@ ifeq ($(HAVE_VM_COMPILED),true)
     Q3OBJ += $(B)/client/vm_x86.o
   endif
   ifeq ($(ARCH),x86_64)
-    Q3OBJ += $(B)/client/vm_x86_64.o
+    Q3OBJ += $(B)/client/vm_x86_64.o $(B)/client/vm_x86_64_assembler.o
   endif
   ifeq ($(ARCH),ppc)
-    Q3OBJ += $(B)/client/$(VM_PPC).o
+    Q3OBJ += $(B)/client/vm_ppc.o
   endif
 endif
 
@@ -1013,15 +1097,18 @@ else
     $(B)/client/sdl_glimp.o
 
   Q3POBJ_SMP = \
-    $(B)/client/linux_glimp_smp.o \
-    $(B)/client/sdl_glimp_smp.o
+    $(B)/clientsmp/linux_glimp.o \
+    $(B)/clientsmp/sdl_glimp.o
 endif
 
 $(B)/ioquake3.$(ARCH)$(BINEXT): $(Q3OBJ) $(Q3POBJ) $(LIBSDLMAIN)
-	$(CC)  -o $@ $(Q3OBJ) $(Q3POBJ) $(CLIENT_LDFLAGS) $(LDFLAGS) $(LIBSDLMAIN)
+	@echo "LD $@"
+	@$(CC) -o $@ $(Q3OBJ) $(Q3POBJ) $(CLIENT_LDFLAGS) \
+		$(LDFLAGS) $(LIBSDLMAIN)
 
 $(B)/ioquake3-smp.$(ARCH)$(BINEXT): $(Q3OBJ) $(Q3POBJ_SMP) $(LIBSDLMAIN)
-	$(CC)  -o $@ $(Q3OBJ) $(Q3POBJ_SMP) $(CLIENT_LDFLAGS) \
+	@echo "LD $@"
+	@$(CC) -o $@ $(Q3OBJ) $(Q3POBJ_SMP) $(CLIENT_LDFLAGS) \
 		$(THREAD_LDFLAGS) $(LDFLAGS) $(LIBSDLMAIN)
 
 ifneq ($(strip $(LIBSDLMAIN)),)
@@ -1032,199 +1119,7 @@ $(LIBSDLMAIN) : $(LIBSDLMAINSRC)
 endif
 endif
 
-$(B)/client/cl_cgame.o : $(CDIR)/cl_cgame.c; $(DO_CC)
-$(B)/client/cl_cin.o : $(CDIR)/cl_cin.c; $(DO_CC)
-$(B)/client/cl_console.o : $(CDIR)/cl_console.c; $(DO_CC)
-ifeq ($(USE_SVN),1)
-  $(B)/client/cl_console.o : .svn/entries
-endif
-$(B)/client/cl_input.o : $(CDIR)/cl_input.c; $(DO_CC)
-$(B)/client/cl_keys.o : $(CDIR)/cl_keys.c; $(DO_CC)
-$(B)/client/cl_main.o : $(CDIR)/cl_main.c; $(DO_CC)
-$(B)/client/cl_net_chan.o : $(CDIR)/cl_net_chan.c; $(DO_CC)
-$(B)/client/cl_parse.o : $(CDIR)/cl_parse.c; $(DO_CC)
-$(B)/client/cl_scrn.o : $(CDIR)/cl_scrn.c; $(DO_CC)
-$(B)/client/cl_ui.o : $(CDIR)/cl_ui.c; $(DO_CC)
-$(B)/client/cl_avi.o : $(CDIR)/cl_avi.c; $(DO_CC)
-$(B)/client/snd_adpcm.o : $(CDIR)/snd_adpcm.c; $(DO_CC)
-$(B)/client/snd_dma.o : $(CDIR)/snd_dma.c; $(DO_CC)
-$(B)/client/snd_mem.o : $(CDIR)/snd_mem.c; $(DO_CC)
-$(B)/client/snd_mix.o : $(CDIR)/snd_mix.c; $(DO_CC)
-$(B)/client/snd_wavelet.o : $(CDIR)/snd_wavelet.c; $(DO_CC)
 
-$(B)/client/snd_main.o : $(CDIR)/snd_main.c; $(DO_CC)
-$(B)/client/snd_codec.o : $(CDIR)/snd_codec.c; $(DO_CC)
-$(B)/client/snd_codec_wav.o : $(CDIR)/snd_codec_wav.c; $(DO_CC)
-$(B)/client/snd_codec_ogg.o : $(CDIR)/snd_codec_ogg.c; $(DO_CC)
-
-$(B)/client/qal.o : $(CDIR)/qal.c; $(DO_CC)
-$(B)/client/snd_openal.o : $(CDIR)/snd_openal.c; $(DO_CC)
-
-$(B)/client/sv_bot.o : $(SDIR)/sv_bot.c; $(DO_CC)
-$(B)/client/sv_client.o : $(SDIR)/sv_client.c; $(DO_CC)
-$(B)/client/sv_ccmds.o : $(SDIR)/sv_ccmds.c; $(DO_CC)
-$(B)/client/sv_game.o : $(SDIR)/sv_game.c; $(DO_CC)
-$(B)/client/sv_init.o : $(SDIR)/sv_init.c; $(DO_CC)
-$(B)/client/sv_main.o : $(SDIR)/sv_main.c; $(DO_CC)
-$(B)/client/sv_net_chan.o : $(SDIR)/sv_net_chan.c; $(DO_CC)
-$(B)/client/sv_snapshot.o : $(SDIR)/sv_snapshot.c; $(DO_CC)
-$(B)/client/sv_world.o : $(SDIR)/sv_world.c; $(DO_CC)
-$(B)/client/cm_trace.o : $(CMDIR)/cm_trace.c; $(DO_CC)
-$(B)/client/cm_load.o : $(CMDIR)/cm_load.c; $(DO_CC)
-$(B)/client/cm_test.o : $(CMDIR)/cm_test.c; $(DO_CC)
-$(B)/client/cm_patch.o : $(CMDIR)/cm_patch.c; $(DO_CC)
-$(B)/client/cm_polylib.o : $(CMDIR)/cm_polylib.c; $(DO_CC)
-$(B)/client/cmd.o : $(CMDIR)/cmd.c; $(DO_CC)
-$(B)/client/common.o : $(CMDIR)/common.c; $(DO_CC)
-ifeq ($(USE_SVN),1)
-  $(B)/client/common.o : .svn/entries
-endif
-$(B)/client/cvar.o : $(CMDIR)/cvar.c; $(DO_CC)
-$(B)/client/files.o : $(CMDIR)/files.c; $(DO_CC)
-$(B)/client/md4.o : $(CMDIR)/md4.c; $(DO_CC)
-$(B)/client/md5.o : $(CMDIR)/md5.c; $(DO_CC)
-$(B)/client/msg.o : $(CMDIR)/msg.c; $(DO_CC)
-$(B)/client/net_chan.o : $(CMDIR)/net_chan.c; $(DO_CC)
-$(B)/client/huffman.o : $(CMDIR)/huffman.c; $(DO_CC)
-$(B)/client/q_shared.o : $(CMDIR)/q_shared.c; $(DO_CC)
-$(B)/client/q_math.o : $(CMDIR)/q_math.c; $(DO_CC)
-
-$(B)/client/be_aas_bspq3.o : $(BLIBDIR)/be_aas_bspq3.c; $(DO_BOT_CC)
-$(B)/client/be_aas_cluster.o : $(BLIBDIR)/be_aas_cluster.c; $(DO_BOT_CC)
-$(B)/client/be_aas_debug.o : $(BLIBDIR)/be_aas_debug.c; $(DO_BOT_CC)
-$(B)/client/be_aas_entity.o : $(BLIBDIR)/be_aas_entity.c; $(DO_BOT_CC)
-$(B)/client/be_aas_file.o : $(BLIBDIR)/be_aas_file.c; $(DO_BOT_CC)
-$(B)/client/be_aas_main.o : $(BLIBDIR)/be_aas_main.c; $(DO_BOT_CC)
-$(B)/client/be_aas_move.o : $(BLIBDIR)/be_aas_move.c; $(DO_BOT_CC)
-$(B)/client/be_aas_optimize.o : $(BLIBDIR)/be_aas_optimize.c; $(DO_BOT_CC)
-$(B)/client/be_aas_reach.o : $(BLIBDIR)/be_aas_reach.c; $(DO_BOT_CC)
-$(B)/client/be_aas_route.o : $(BLIBDIR)/be_aas_route.c; $(DO_BOT_CC)
-$(B)/client/be_aas_routealt.o : $(BLIBDIR)/be_aas_routealt.c; $(DO_BOT_CC)
-$(B)/client/be_aas_sample.o : $(BLIBDIR)/be_aas_sample.c; $(DO_BOT_CC)
-$(B)/client/be_ai_char.o : $(BLIBDIR)/be_ai_char.c; $(DO_BOT_CC)
-$(B)/client/be_ai_chat.o : $(BLIBDIR)/be_ai_chat.c; $(DO_BOT_CC)
-$(B)/client/be_ai_gen.o : $(BLIBDIR)/be_ai_gen.c; $(DO_BOT_CC)
-$(B)/client/be_ai_goal.o : $(BLIBDIR)/be_ai_goal.c; $(DO_BOT_CC)
-$(B)/client/be_ai_move.o : $(BLIBDIR)/be_ai_move.c; $(DO_BOT_CC)
-$(B)/client/be_ai_weap.o : $(BLIBDIR)/be_ai_weap.c; $(DO_BOT_CC)
-$(B)/client/be_ai_weight.o : $(BLIBDIR)/be_ai_weight.c; $(DO_BOT_CC)
-$(B)/client/be_ea.o : $(BLIBDIR)/be_ea.c; $(DO_BOT_CC)
-$(B)/client/be_interface.o : $(BLIBDIR)/be_interface.c; $(DO_BOT_CC)
-$(B)/client/l_crc.o : $(BLIBDIR)/l_crc.c; $(DO_BOT_CC)
-$(B)/client/l_libvar.o : $(BLIBDIR)/l_libvar.c; $(DO_BOT_CC)
-$(B)/client/l_log.o : $(BLIBDIR)/l_log.c; $(DO_BOT_CC)
-$(B)/client/l_memory.o : $(BLIBDIR)/l_memory.c; $(DO_BOT_CC)
-$(B)/client/l_precomp.o : $(BLIBDIR)/l_precomp.c; $(DO_BOT_CC)
-$(B)/client/l_script.o : $(BLIBDIR)/l_script.c; $(DO_BOT_CC)
-$(B)/client/l_struct.o : $(BLIBDIR)/l_struct.c; $(DO_BOT_CC)
-
-$(B)/client/jcapimin.o : $(JPDIR)/jcapimin.c; $(DO_CC)
-$(B)/client/jchuff.o : $(JPDIR)/jchuff.c; $(DO_CC)
-$(B)/client/jcinit.o : $(JPDIR)/jcinit.c; $(DO_CC)
-$(B)/client/jccoefct.o : $(JPDIR)/jccoefct.c; $(DO_CC)
-$(B)/client/jccolor.o : $(JPDIR)/jccolor.c; $(DO_CC)
-$(B)/client/jfdctflt.o : $(JPDIR)/jfdctflt.c; $(DO_CC)
-$(B)/client/jcdctmgr.o : $(JPDIR)/jcdctmgr.c; $(DO_CC)
-$(B)/client/jcmainct.o : $(JPDIR)/jcmainct.c; $(DO_CC)
-$(B)/client/jcmarker.o : $(JPDIR)/jcmarker.c; $(DO_CC)
-$(B)/client/jcmaster.o : $(JPDIR)/jcmaster.c; $(DO_CC)
-$(B)/client/jcomapi.o : $(JPDIR)/jcomapi.c; $(DO_CC)
-$(B)/client/jcparam.o : $(JPDIR)/jcparam.c;  $(DO_CC)
-$(B)/client/jcprepct.o : $(JPDIR)/jcprepct.c; $(DO_CC)
-$(B)/client/jcsample.o : $(JPDIR)/jcsample.c; $(DO_CC)
-
-$(B)/client/jdapimin.o : $(JPDIR)/jdapimin.c; $(DO_CC)
-$(B)/client/jdapistd.o : $(JPDIR)/jdapistd.c; $(DO_CC)
-$(B)/client/jdatasrc.o : $(JPDIR)/jdatasrc.c; $(DO_CC)
-$(B)/client/jdcoefct.o : $(JPDIR)/jdcoefct.c; $(DO_CC)
-$(B)/client/jdcolor.o : $(JPDIR)/jdcolor.c; $(DO_CC)
-$(B)/client/jcphuff.o : $(JPDIR)/jcphuff.c; $(DO_CC)
-$(B)/client/jddctmgr.o : $(JPDIR)/jddctmgr.c; $(DO_CC)
-$(B)/client/jdhuff.o : $(JPDIR)/jdhuff.c; $(DO_CC)
-$(B)/client/jdinput.o : $(JPDIR)/jdinput.c; $(DO_CC)
-$(B)/client/jdmainct.o : $(JPDIR)/jdmainct.c; $(DO_CC)
-$(B)/client/jdmarker.o : $(JPDIR)/jdmarker.c; $(DO_CC)
-$(B)/client/jdmaster.o : $(JPDIR)/jdmaster.c; $(DO_CC)
-$(B)/client/jdpostct.o : $(JPDIR)/jdpostct.c; $(DO_CC)
-$(B)/client/jdsample.o : $(JPDIR)/jdsample.c; $(DO_CC)
-$(B)/client/jdtrans.o : $(JPDIR)/jdtrans.c; $(DO_CC)
-$(B)/client/jerror.o : $(JPDIR)/jerror.c; $(DO_CC) $(GL_CFLAGS) $(MINGW_CFLAGS)
-$(B)/client/jidctflt.o : $(JPDIR)/jidctflt.c; $(DO_CC)
-$(B)/client/jmemmgr.o : $(JPDIR)/jmemmgr.c; $(DO_CC)
-$(B)/client/jmemnobs.o : $(JPDIR)/jmemnobs.c; $(DO_CC)  $(GL_CFLAGS) $(MINGW_CFLAGS)
-$(B)/client/jutils.o : $(JPDIR)/jutils.c; $(DO_CC)
-
-$(B)/client/tr_bsp.o : $(RDIR)/tr_bsp.c; $(DO_CC)  $(GL_CFLAGS)
-$(B)/client/tr_animation.o : $(RDIR)/tr_animation.c; $(DO_CC)  $(GL_CFLAGS)
-$(B)/client/tr_backend.o : $(RDIR)/tr_backend.c; $(DO_CC)  $(GL_CFLAGS)
-$(B)/client/tr_cmds.o : $(RDIR)/tr_cmds.c; $(DO_CC)  $(GL_CFLAGS)
-$(B)/client/tr_curve.o : $(RDIR)/tr_curve.c; $(DO_CC)  $(GL_CFLAGS)
-$(B)/client/tr_flares.o : $(RDIR)/tr_flares.c; $(DO_CC)  $(GL_CFLAGS)
-$(B)/client/tr_font.o : $(RDIR)/tr_font.c; $(DO_CC)   $(GL_CFLAGS)
-$(B)/client/tr_image.o : $(RDIR)/tr_image.c; $(DO_CC)   $(GL_CFLAGS) $(MINGW_CFLAGS)
-$(B)/client/tr_init.o : $(RDIR)/tr_init.c; $(DO_CC)    $(GL_CFLAGS)
-$(B)/client/tr_light.o : $(RDIR)/tr_light.c; $(DO_CC)  $(GL_CFLAGS)
-$(B)/client/tr_main.o : $(RDIR)/tr_main.c; $(DO_CC)   $(GL_CFLAGS)
-$(B)/client/tr_marks.o : $(RDIR)/tr_marks.c; $(DO_CC)   $(GL_CFLAGS)
-$(B)/client/tr_mesh.o : $(RDIR)/tr_mesh.c; $(DO_CC)   $(GL_CFLAGS)
-$(B)/client/tr_model.o : $(RDIR)/tr_model.c; $(DO_CC)   $(GL_CFLAGS)
-$(B)/client/tr_noise.o : $(RDIR)/tr_noise.c; $(DO_CC)   $(GL_CFLAGS)
-$(B)/client/tr_scene.o : $(RDIR)/tr_scene.c; $(DO_CC)   $(GL_CFLAGS)
-$(B)/client/tr_shade.o : $(RDIR)/tr_shade.c; $(DO_CC)   $(GL_CFLAGS)
-$(B)/client/tr_shader.o : $(RDIR)/tr_shader.c; $(DO_CC)   $(GL_CFLAGS)
-$(B)/client/tr_shade_calc.o : $(RDIR)/tr_shade_calc.c; $(DO_CC)  $(GL_CFLAGS)
-$(B)/client/tr_shadows.o : $(RDIR)/tr_shadows.c; $(DO_CC)   $(GL_CFLAGS)
-$(B)/client/tr_sky.o : $(RDIR)/tr_sky.c; $(DO_CC)   $(GL_CFLAGS)
-$(B)/client/tr_smp.o : $(RDIR)/tr_smp.c; $(DO_CC)   $(GL_CFLAGS)
-$(B)/client/tr_stripify.o : $(RDIR)/tr_stripify.c; $(DO_CC)   $(GL_CFLAGS)
-$(B)/client/tr_subdivide.o : $(RDIR)/tr_subdivide.c; $(DO_CC)   $(GL_CFLAGS)
-$(B)/client/tr_surface.o : $(RDIR)/tr_surface.c; $(DO_CC)  $(GL_CFLAGS)
-$(B)/client/tr_world.o : $(RDIR)/tr_world.c; $(DO_CC)   $(GL_CFLAGS)
-
-$(B)/client/unix_qgl.o : $(UDIR)/unix_qgl.c; $(DO_CC)  $(GL_CFLAGS)
-$(B)/client/unix_main.o : $(UDIR)/unix_main.c; $(DO_CC)
-$(B)/client/unix_net.o : $(UDIR)/unix_net.c; $(DO_CC)
-$(B)/client/unix_shared.o : $(UDIR)/unix_shared.c; $(DO_CC)
-$(B)/client/irix_glimp.o : $(UDIR)/irix_glimp.c; $(DO_CC)
-$(B)/client/irix_glimp_smp.o : $(UDIR)/irix_glimp.c; $(DO_SMP_CC)
-$(B)/client/irix_snd.o : $(UDIR)/irix_snd.c; $(DO_CC)
-$(B)/client/irix_input.o : $(UDIR)/irix_input.c; $(DO_CC)
-$(B)/client/linux_signals.o : $(UDIR)/linux_signals.c; $(DO_CC) $(GL_CFLAGS)
-$(B)/client/linux_glimp.o : $(UDIR)/linux_glimp.c; $(DO_CC)  $(GL_CFLAGS)
-$(B)/client/sdl_glimp.o : $(UDIR)/sdl_glimp.c; $(DO_CC)  $(GL_CFLAGS)
-$(B)/client/linux_glimp_smp.o : $(UDIR)/linux_glimp.c; $(DO_SMP_CC)  $(GL_CFLAGS)
-$(B)/client/sdl_glimp_smp.o : $(UDIR)/sdl_glimp.c; $(DO_SMP_CC)  $(GL_CFLAGS)
-$(B)/client/linux_joystick.o : $(UDIR)/linux_joystick.c; $(DO_CC)
-$(B)/client/linux_qgl.o : $(UDIR)/linux_qgl.c; $(DO_CC)  $(GL_CFLAGS)
-$(B)/client/linux_input.o : $(UDIR)/linux_input.c; $(DO_CC)
-$(B)/client/linux_snd.o : $(UDIR)/linux_snd.c; $(DO_CC)
-$(B)/client/sdl_snd.o : $(UDIR)/sdl_snd.c; $(DO_CC)
-$(B)/client/snd_mixa.o : $(UDIR)/snd_mixa.s; $(DO_AS)
-$(B)/client/matha.o : $(UDIR)/matha.s; $(DO_AS)
-$(B)/client/ftola.o : $(UDIR)/ftola.s; $(DO_AS)
-$(B)/client/snapvectora.o : $(UDIR)/snapvectora.s; $(DO_AS)
-
-$(B)/client/win_gamma.o : $(W32DIR)/win_gamma.c; $(DO_CC)
-$(B)/client/win_glimp.o : $(W32DIR)/win_glimp.c; $(DO_CC)
-$(B)/client/win_input.o : $(W32DIR)/win_input.c; $(DO_CC)
-$(B)/client/win_main.o : $(W32DIR)/win_main.c; $(DO_CC)
-$(B)/client/win_net.o : $(W32DIR)/win_net.c; $(DO_CC)
-$(B)/client/win_qgl.o : $(W32DIR)/win_qgl.c; $(DO_CC)
-$(B)/client/win_shared.o : $(W32DIR)/win_shared.c; $(DO_CC)
-$(B)/client/win_snd.o : $(W32DIR)/win_snd.c; $(DO_CC)
-$(B)/client/win_syscon.o : $(W32DIR)/win_syscon.c; $(DO_CC)
-$(B)/client/win_wndproc.o : $(W32DIR)/win_wndproc.c; $(DO_CC)
-$(B)/client/win_resource.o : $(W32DIR)/winquake.rc; $(DO_WINDRES)
-
-$(B)/client/vm_x86.o : $(CMDIR)/vm_x86.c; $(DO_CC)
-$(B)/client/vm_x86_64.o : $(CMDIR)/vm_x86_64.c; $(DO_CC)
-ifneq ($(VM_PPC),)
-$(B)/client/$(VM_PPC).o : $(CMDIR)/$(VM_PPC).c; $(DO_CC)
-endif
-
-$(B)/client/unzip.o : $(CMDIR)/unzip.c; $(DO_CC)
-$(B)/client/vm.o : $(CMDIR)/vm.c; $(DO_CC)
-$(B)/client/vm_interpreted.o : $(CMDIR)/vm_interpreted.c; $(DO_CC)
 
 #############################################################################
 # DEDICATED SERVER
@@ -1321,94 +1216,16 @@ ifeq ($(HAVE_VM_COMPILED),true)
     Q3DOBJ += $(B)/ded/vm_x86.o
   endif
   ifeq ($(ARCH),x86_64)
-    Q3DOBJ += $(B)/ded/vm_x86_64.o
+    Q3DOBJ += $(B)/ded/vm_x86_64.o $(B)/client/vm_x86_64_assembler.o
   endif
   ifeq ($(ARCH),ppc)
-    Q3DOBJ += $(B)/ded/$(VM_PPC).o
+    Q3DOBJ += $(B)/ded/vm_ppc.o
   endif
 endif
 
 $(B)/ioq3ded.$(ARCH)$(BINEXT): $(Q3DOBJ)
-	$(CC) -o $@ $(Q3DOBJ) $(LDFLAGS)
-
-$(B)/ded/sv_bot.o : $(SDIR)/sv_bot.c; $(DO_DED_CC)
-$(B)/ded/sv_client.o : $(SDIR)/sv_client.c; $(DO_DED_CC)
-$(B)/ded/sv_ccmds.o : $(SDIR)/sv_ccmds.c; $(DO_DED_CC)
-$(B)/ded/sv_game.o : $(SDIR)/sv_game.c; $(DO_DED_CC)
-$(B)/ded/sv_init.o : $(SDIR)/sv_init.c; $(DO_DED_CC)
-$(B)/ded/sv_main.o : $(SDIR)/sv_main.c; $(DO_DED_CC)
-$(B)/ded/sv_net_chan.o : $(SDIR)/sv_net_chan.c; $(DO_DED_CC)
-$(B)/ded/sv_snapshot.o : $(SDIR)/sv_snapshot.c; $(DO_DED_CC)
-$(B)/ded/sv_world.o : $(SDIR)/sv_world.c; $(DO_DED_CC)
-$(B)/ded/cm_load.o : $(CMDIR)/cm_load.c; $(DO_DED_CC)
-$(B)/ded/cm_polylib.o : $(CMDIR)/cm_polylib.c; $(DO_DED_CC)
-$(B)/ded/cm_test.o : $(CMDIR)/cm_test.c; $(DO_DED_CC)
-$(B)/ded/cm_trace.o : $(CMDIR)/cm_trace.c; $(DO_DED_CC)
-$(B)/ded/cm_patch.o : $(CMDIR)/cm_patch.c; $(DO_DED_CC)
-$(B)/ded/cmd.o : $(CMDIR)/cmd.c; $(DO_DED_CC)
-$(B)/ded/common.o : $(CMDIR)/common.c; $(DO_DED_CC)
-ifeq ($(USE_SVN),1)
-  $(B)/ded/common.o : .svn/entries
-endif
-$(B)/ded/cvar.o : $(CMDIR)/cvar.c; $(DO_DED_CC)
-$(B)/ded/files.o : $(CMDIR)/files.c; $(DO_DED_CC)
-$(B)/ded/md4.o : $(CMDIR)/md4.c; $(DO_DED_CC)
-$(B)/ded/msg.o : $(CMDIR)/msg.c; $(DO_DED_CC)
-$(B)/ded/net_chan.o : $(CMDIR)/net_chan.c; $(DO_DED_CC)
-$(B)/ded/huffman.o : $(CMDIR)/huffman.c; $(DO_DED_CC)
-$(B)/ded/q_shared.o : $(CMDIR)/q_shared.c; $(DO_DED_CC)
-$(B)/ded/q_math.o : $(CMDIR)/q_math.c; $(DO_DED_CC)
-
-$(B)/ded/be_aas_bspq3.o : $(BLIBDIR)/be_aas_bspq3.c; $(DO_BOT_CC)
-$(B)/ded/be_aas_cluster.o : $(BLIBDIR)/be_aas_cluster.c; $(DO_BOT_CC)
-$(B)/ded/be_aas_debug.o : $(BLIBDIR)/be_aas_debug.c; $(DO_BOT_CC)
-$(B)/ded/be_aas_entity.o : $(BLIBDIR)/be_aas_entity.c; $(DO_BOT_CC)
-$(B)/ded/be_aas_file.o : $(BLIBDIR)/be_aas_file.c; $(DO_BOT_CC)
-$(B)/ded/be_aas_main.o : $(BLIBDIR)/be_aas_main.c; $(DO_BOT_CC)
-$(B)/ded/be_aas_move.o : $(BLIBDIR)/be_aas_move.c; $(DO_BOT_CC)
-$(B)/ded/be_aas_optimize.o : $(BLIBDIR)/be_aas_optimize.c; $(DO_BOT_CC)
-$(B)/ded/be_aas_reach.o : $(BLIBDIR)/be_aas_reach.c; $(DO_BOT_CC)
-$(B)/ded/be_aas_route.o : $(BLIBDIR)/be_aas_route.c; $(DO_BOT_CC)
-$(B)/ded/be_aas_routealt.o : $(BLIBDIR)/be_aas_routealt.c; $(DO_BOT_CC)
-$(B)/ded/be_aas_sample.o : $(BLIBDIR)/be_aas_sample.c; $(DO_BOT_CC)
-$(B)/ded/be_ai_char.o : $(BLIBDIR)/be_ai_char.c; $(DO_BOT_CC)
-$(B)/ded/be_ai_chat.o : $(BLIBDIR)/be_ai_chat.c; $(DO_BOT_CC)
-$(B)/ded/be_ai_gen.o : $(BLIBDIR)/be_ai_gen.c; $(DO_BOT_CC)
-$(B)/ded/be_ai_goal.o : $(BLIBDIR)/be_ai_goal.c; $(DO_BOT_CC)
-$(B)/ded/be_ai_move.o : $(BLIBDIR)/be_ai_move.c; $(DO_BOT_CC)
-$(B)/ded/be_ai_weap.o : $(BLIBDIR)/be_ai_weap.c; $(DO_BOT_CC)
-$(B)/ded/be_ai_weight.o : $(BLIBDIR)/be_ai_weight.c; $(DO_BOT_CC)
-$(B)/ded/be_ea.o : $(BLIBDIR)/be_ea.c; $(DO_BOT_CC)
-$(B)/ded/be_interface.o : $(BLIBDIR)/be_interface.c; $(DO_BOT_CC)
-$(B)/ded/l_crc.o : $(BLIBDIR)/l_crc.c; $(DO_BOT_CC)
-$(B)/ded/l_libvar.o : $(BLIBDIR)/l_libvar.c; $(DO_BOT_CC)
-$(B)/ded/l_log.o : $(BLIBDIR)/l_log.c; $(DO_BOT_CC)
-$(B)/ded/l_memory.o : $(BLIBDIR)/l_memory.c; $(DO_BOT_CC)
-$(B)/ded/l_precomp.o : $(BLIBDIR)/l_precomp.c; $(DO_BOT_CC)
-$(B)/ded/l_script.o : $(BLIBDIR)/l_script.c; $(DO_BOT_CC)
-$(B)/ded/l_struct.o : $(BLIBDIR)/l_struct.c; $(DO_BOT_CC)
-
-$(B)/ded/linux_signals.o : $(UDIR)/linux_signals.c; $(DO_DED_CC)
-$(B)/ded/unix_main.o : $(UDIR)/unix_main.c; $(DO_DED_CC)
-$(B)/ded/unix_net.o : $(UDIR)/unix_net.c; $(DO_DED_CC)
-$(B)/ded/unix_shared.o : $(UDIR)/unix_shared.c; $(DO_DED_CC)
-
-$(B)/ded/null_client.o : $(NDIR)/null_client.c; $(DO_DED_CC)
-$(B)/ded/null_input.o : $(NDIR)/null_input.c; $(DO_DED_CC)
-$(B)/ded/null_snddma.o : $(NDIR)/null_snddma.c; $(DO_DED_CC)
-$(B)/ded/unzip.o : $(CMDIR)/unzip.c; $(DO_DED_CC)
-$(B)/ded/vm.o : $(CMDIR)/vm.c; $(DO_DED_CC)
-$(B)/ded/vm_interpreted.o : $(CMDIR)/vm_interpreted.c; $(DO_DED_CC)
-
-$(B)/ded/ftola.o : $(UDIR)/ftola.s; $(DO_AS)
-$(B)/ded/snapvectora.o : $(UDIR)/snapvectora.s; $(DO_AS)
-$(B)/ded/matha.o : $(UDIR)/matha.s; $(DO_AS)
-
-$(B)/ded/vm_x86.o : $(CMDIR)/vm_x86.c; $(DO_DED_CC)
-$(B)/ded/vm_x86_64.o : $(CMDIR)/vm_x86_64.c; $(DO_DED_CC)
-ifneq ($(VM_PPC),)
-$(B)/ded/$(VM_PPC).o : $(CMDIR)/$(VM_PPC).c; $(DO_DED_CC)
-endif
+	@echo "LD $@"
+	@$(CC) -o $@ $(Q3DOBJ) $(LDFLAGS)
 
 
 
@@ -1446,10 +1263,12 @@ Q3CGOBJ = $(Q3CGOBJ_) $(B)/baseq3/cgame/cg_syscalls.o
 Q3CGVMOBJ = $(Q3CGOBJ_:%.o=%.asm) $(B)/baseq3/game/bg_lib.asm
 
 $(B)/baseq3/cgame$(ARCH).$(SHLIBEXT) : $(Q3CGOBJ)
-	$(CC) $(SHLIBLDFLAGS) -o $@ $(Q3CGOBJ)
+	@echo "LD $@"
+	@$(CC) $(SHLIBLDFLAGS) -o $@ $(Q3CGOBJ)
 
 $(B)/baseq3/vm/cgame.qvm: $(Q3CGVMOBJ) $(CGDIR)/cg_syscalls.asm
-	$(Q3ASM) -o $@ $(Q3CGVMOBJ) $(CGDIR)/cg_syscalls.asm
+	@echo "Q3ASM $@"
+	@$(Q3ASM) -o $@ $(Q3CGVMOBJ) $(CGDIR)/cg_syscalls.asm
 
 #############################################################################
 ## MISSIONPACK CGAME
@@ -1487,10 +1306,12 @@ MPCGOBJ = $(MPCGOBJ_) $(B)/missionpack/cgame/cg_syscalls.o
 MPCGVMOBJ = $(MPCGOBJ_:%.o=%.asm) $(B)/missionpack/game/bg_lib.asm
 
 $(B)/missionpack/cgame$(ARCH).$(SHLIBEXT) : $(MPCGOBJ)
-	$(CC) $(SHLIBLDFLAGS) -o $@ $(MPCGOBJ)
+	@echo "LD $@"
+	@$(CC) $(SHLIBLDFLAGS) -o $@ $(MPCGOBJ)
 
 $(B)/missionpack/vm/cgame.qvm: $(MPCGVMOBJ) $(CGDIR)/cg_syscalls.asm
-	$(Q3ASM) -o $@ $(MPCGVMOBJ) $(CGDIR)/cg_syscalls.asm
+	@echo "Q3ASM $@"
+	@$(Q3ASM) -o $@ $(MPCGVMOBJ) $(CGDIR)/cg_syscalls.asm
 
 
 
@@ -1537,10 +1358,12 @@ Q3GOBJ = $(Q3GOBJ_) $(B)/baseq3/game/g_syscalls.o
 Q3GVMOBJ = $(Q3GOBJ_:%.o=%.asm) $(B)/baseq3/game/bg_lib.asm
 
 $(B)/baseq3/qagame$(ARCH).$(SHLIBEXT) : $(Q3GOBJ)
-	$(CC) $(SHLIBLDFLAGS) -o $@ $(Q3GOBJ)
+	@echo "LD $@"
+	@$(CC) $(SHLIBLDFLAGS) -o $@ $(Q3GOBJ)
 
 $(B)/baseq3/vm/qagame.qvm: $(Q3GVMOBJ) $(GDIR)/g_syscalls.asm
-	$(Q3ASM) -o $@ $(Q3GVMOBJ) $(GDIR)/g_syscalls.asm
+	@echo "Q3ASM $@"
+	@$(Q3ASM) -o $@ $(Q3GVMOBJ) $(GDIR)/g_syscalls.asm
 
 #############################################################################
 ## MISSIONPACK GAME
@@ -1585,10 +1408,12 @@ MPGOBJ = $(MPGOBJ_) $(B)/missionpack/game/g_syscalls.o
 MPGVMOBJ = $(MPGOBJ_:%.o=%.asm) $(B)/missionpack/game/bg_lib.asm
 
 $(B)/missionpack/qagame$(ARCH).$(SHLIBEXT) : $(MPGOBJ)
-	$(CC) $(SHLIBLDFLAGS) -o $@ $(MPGOBJ)
+	@echo "LD $@"
+	@$(CC) $(SHLIBLDFLAGS) -o $@ $(MPGOBJ)
 
 $(B)/missionpack/vm/qagame.qvm: $(MPGVMOBJ) $(GDIR)/g_syscalls.asm
-	$(Q3ASM) -o $@ $(MPGVMOBJ) $(GDIR)/g_syscalls.asm
+	@echo "Q3ASM $@"
+	@$(Q3ASM) -o $@ $(MPGVMOBJ) $(GDIR)/g_syscalls.asm
 
 
 
@@ -1645,10 +1470,12 @@ Q3UIOBJ = $(Q3UIOBJ_) $(B)/missionpack/ui/ui_syscalls.o
 Q3UIVMOBJ = $(Q3UIOBJ_:%.o=%.asm) $(B)/baseq3/game/bg_lib.asm
 
 $(B)/baseq3/ui$(ARCH).$(SHLIBEXT) : $(Q3UIOBJ)
-	$(CC) $(CFLAGS) $(SHLIBLDFLAGS) -o $@ $(Q3UIOBJ)
+	@echo "LD $@"
+	@$(CC) $(CFLAGS) $(SHLIBLDFLAGS) -o $@ $(Q3UIOBJ)
 
 $(B)/baseq3/vm/ui.qvm: $(Q3UIVMOBJ) $(UIDIR)/ui_syscalls.asm
-	$(Q3ASM) -o $@ $(Q3UIVMOBJ) $(UIDIR)/ui_syscalls.asm
+	@echo "Q3ASM $@"
+	@$(Q3ASM) -o $@ $(Q3UIVMOBJ) $(UIDIR)/ui_syscalls.asm
 
 #############################################################################
 ## MISSIONPACK UI
@@ -1670,11 +1497,77 @@ MPUIOBJ = $(MPUIOBJ_) $(B)/missionpack/ui/ui_syscalls.o
 MPUIVMOBJ = $(MPUIOBJ_:%.o=%.asm) $(B)/baseq3/game/bg_lib.asm
 
 $(B)/missionpack/ui$(ARCH).$(SHLIBEXT) : $(MPUIOBJ)
-	$(CC) $(CFLAGS) $(SHLIBLDFLAGS) -o $@ $(MPUIOBJ)
+	@echo "LD $@"
+	@$(CC) $(CFLAGS) $(SHLIBLDFLAGS) -o $@ $(MPUIOBJ)
 
 $(B)/missionpack/vm/ui.qvm: $(MPUIVMOBJ) $(UIDIR)/ui_syscalls.asm
-	$(Q3ASM) -o $@ $(MPUIVMOBJ) $(UIDIR)/ui_syscalls.asm
+	@echo "Q3ASM $@"
+	@$(Q3ASM) -o $@ $(MPUIVMOBJ) $(UIDIR)/ui_syscalls.asm
 
+
+
+#############################################################################
+## CLIENT/SERVER RULES
+#############################################################################
+
+$(B)/client/%.o: $(UDIR)/%.s
+	$(DO_AS)
+
+$(B)/client/%.o: $(CDIR)/%.c
+	$(DO_CC)
+
+$(B)/client/%.o: $(SDIR)/%.c
+	$(DO_CC)
+
+$(B)/client/%.o: $(CMDIR)/%.c
+	$(DO_CC)
+
+$(B)/client/%.o: $(BLIBDIR)/%.c
+	$(DO_BOT_CC)
+
+$(B)/client/%.o: $(JPDIR)/%.c
+	$(DO_CC)
+
+$(B)/client/%.o: $(RDIR)/%.c
+	$(DO_CC)
+
+$(B)/client/%.o: $(UDIR)/%.c
+	$(DO_CC)
+
+$(B)/clientsmp/%.o: $(UDIR)/%.c
+	$(DO_SMP_CC)
+
+$(B)/client/%.o: $(W32DIR)/%.c
+	$(DO_CC)
+
+$(B)/client/%.o: $(W32DIR)/%.rc
+	$(DO_WINDRES)
+
+
+$(B)/ded/%.o: $(UDIR)/%.s
+	$(DO_AS)
+
+$(B)/ded/%.o: $(SDIR)/%.c
+	$(DO_DED_CC)
+
+$(B)/ded/%.o: $(CMDIR)/%.c
+	$(DO_DED_CC)
+
+$(B)/ded/%.o: $(BLIBDIR)/%.c
+	$(DO_BOT_CC)
+
+$(B)/ded/%.o: $(UDIR)/%.c
+	$(DO_DED_CC)
+
+$(B)/ded/%.o: $(NDIR)/%.c
+	$(DO_DED_CC)
+
+# Extra dependencies to ensure the SVN version is incorporated
+ifeq ($(USE_SVN),1)
+  $(B)/client/cl_console.o : .svn/entries
+  $(B)/client/common.o : .svn/entries
+  $(B)/ded/common.o : .svn/entries
+endif
 
 
 #############################################################################
@@ -1688,10 +1581,10 @@ $(B)/baseq3/cgame/%.asm: $(CGDIR)/%.c
 	$(DO_Q3LCC)
 
 $(B)/missionpack/cgame/%.o: $(CGDIR)/%.c
-	$(DO_SHLIB_CC) -DMISSIONPACK
+	$(DO_SHLIB_CC_MISSIONPACK)
 
 $(B)/missionpack/cgame/%.asm: $(CGDIR)/%.c
-	$(DO_Q3LCC) -DMISSIONPACK
+	$(DO_Q3LCC_MISSIONPACK)
 
 
 $(B)/baseq3/game/%.o: $(GDIR)/%.c
@@ -1701,10 +1594,10 @@ $(B)/baseq3/game/%.asm: $(GDIR)/%.c
 	$(DO_Q3LCC)
 
 $(B)/missionpack/game/%.o: $(GDIR)/%.c
-	$(DO_SHLIB_CC) -DMISSIONPACK
+	$(DO_SHLIB_CC_MISSIONPACK)
 
 $(B)/missionpack/game/%.asm: $(GDIR)/%.c
-	$(DO_Q3LCC) -DMISSIONPACK
+	$(DO_Q3LCC_MISSIONPACK)
 
 
 $(B)/baseq3/ui/%.o: $(Q3UIDIR)/%.c
@@ -1714,10 +1607,10 @@ $(B)/baseq3/ui/%.asm: $(Q3UIDIR)/%.c
 	$(DO_Q3LCC)
 
 $(B)/missionpack/ui/%.o: $(UIDIR)/%.c
-	$(DO_SHLIB_CC) -DMISSIONPACK
+	$(DO_SHLIB_CC_MISSIONPACK)
 
 $(B)/missionpack/ui/%.asm: $(UIDIR)/%.c
-	$(DO_Q3LCC) -DMISSIONPACK
+	$(DO_Q3LCC_MISSIONPACK)
 
 
 $(B)/baseq3/qcommon/%.o: $(CMDIR)/%.c
@@ -1727,17 +1620,17 @@ $(B)/baseq3/qcommon/%.asm: $(CMDIR)/%.c
 	$(DO_Q3LCC)
 
 $(B)/missionpack/qcommon/%.o: $(CMDIR)/%.c
-	$(DO_SHLIB_CC) -DMISSIONPACK
+	$(DO_SHLIB_CC_MISSIONPACK)
 
 $(B)/missionpack/qcommon/%.asm: $(CMDIR)/%.c
-	$(DO_Q3LCC) -DMISSIONPACK
+	$(DO_Q3LCC_MISSIONPACK)
 
 
 #############################################################################
 # MISC
 #############################################################################
 
-copyfiles: build_release
+copyfiles: release
 	@if [ ! -d $(COPYDIR)/baseq3 ]; then echo "You need to set COPYDIR to where your Quake3 data is!"; fi
 	-$(MKDIR) -p -m 0755 $(COPYDIR)/baseq3
 	-$(MKDIR) -p -m 0755 $(COPYDIR)/missionpack
@@ -1757,7 +1650,7 @@ ifneq ($(BUILD_SERVER),0)
 	fi
 endif
 
-ifneq ($(BUILD_GAME_SO),0)	
+ifneq ($(BUILD_GAME_SO),0)
 	$(INSTALL) -s -m 0755 $(BR)/baseq3/cgame$(ARCH).$(SHLIBEXT) \
 					$(COPYDIR)/baseq3/.
 	$(INSTALL) -s -m 0755 $(BR)/baseq3/qagame$(ARCH).$(SHLIBEXT) \
@@ -1774,36 +1667,37 @@ ifneq ($(BUILD_GAME_SO),0)
 endif
 
 clean: clean-debug clean-release
-	$(MAKE) -C $(LOKISETUPDIR) clean
+	@$(MAKE) -C $(LOKISETUPDIR) clean
 
 clean2:
-	if [ -d $(B) ];then (find $(B) -name '*.d' -exec rm {} \;)fi
-	rm -f $(Q3OBJ) $(Q3POBJ) $(Q3POBJ_SMP) $(Q3DOBJ) \
+	@echo "CLEAN $(B)"
+	@if [ -d $(B) ];then (find $(B) -name '*.d' -exec rm {} \;)fi
+	@rm -f $(Q3OBJ) $(Q3POBJ) $(Q3POBJ_SMP) $(Q3DOBJ) \
 		$(MPGOBJ) $(Q3GOBJ) $(Q3CGOBJ) $(MPCGOBJ) $(Q3UIOBJ) $(MPUIOBJ) \
 		$(MPGVMOBJ) $(Q3GVMOBJ) $(Q3CGVMOBJ) $(MPCGVMOBJ) $(Q3UIVMOBJ) $(MPUIVMOBJ)
-	rm -f $(TARGETS)
+	@rm -f $(TARGETS)
 
 clean-debug:
-	$(MAKE) clean2 B=$(BD) CFLAGS="$(DEBUG_CFLAGS)"
+	@$(MAKE) clean2 B=$(BD)
 
 clean-release:
-	$(MAKE) clean2 B=$(BR) CFLAGS="$(RELEASE_CFLAGS)"
+	@$(MAKE) clean2 B=$(BR)
 
 toolsclean:
-	$(MAKE) -C $(TOOLSDIR)/asm clean uninstall
-	$(MAKE) -C $(TOOLSDIR)/lcc clean uninstall
+	@$(MAKE) -C $(TOOLSDIR)/asm clean uninstall
+	@$(MAKE) -C $(TOOLSDIR)/lcc clean uninstall
 
 distclean: clean toolsclean
-	rm -rf $(BUILD_DIR)
+	@rm -rf $(BUILD_DIR)
 
-installer: build_release
-	$(MAKE) VERSION=$(VERSION) -C $(LOKISETUPDIR)
+installer: release
+	@$(MAKE) VERSION=$(VERSION) -C $(LOKISETUPDIR)
 
 dist:
-	rm -rf quake3-$(SVN_VERSION)
-	svn export . quake3-$(SVN_VERSION)
-	tar --owner=root --group=root --force-local -cjf quake3-$(SVN_VERSION).tar.bz2 quake3-$(SVN_VERSION)
-	rm -rf quake3-$(SVN_VERSION)
+	rm -rf ioquake3-$(SVN_VERSION)
+	svn export . ioquake3-$(SVN_VERSION)
+	tar --owner=root --group=root --force-local -cjf ioquake3-$(SVN_VERSION).tar.bz2 ioquake3-$(SVN_VERSION)
+	rm -rf ioquake3-$(SVN_VERSION)
 
 #############################################################################
 # DEPENDENCIES
@@ -1811,16 +1705,10 @@ dist:
 
 D_FILES=$(shell find . -name '*.d')
 
-$(B)/baseq3/vm/vm.d: $(Q3GOBJ) $(Q3CGOBJ) $(Q3UIOBJ)
-	cat $(^:%.o=%.d) | sed -e 's/\.o/\.asm/g' > $@
-
-$(B)/missionpack/vm/vm.d: $(MPGOBJ) $(MPCGOBJ) $(MPUIOBJ)
-	cat $(^:%.o=%.d) | sed -e 's/\.o/\.asm/g' > $@
-
-qvmdeps: $(B)/baseq3/vm/vm.d $(B)/missionpack/vm/vm.d
-
 ifneq ($(strip $(D_FILES)),)
   include $(D_FILES)
 endif
 
-.PHONY: release debug clean distclean copyfiles installer dist
+.PHONY: all clean clean2 clean-debug clean-release copyfiles \
+	debug default dist distclean installer makedirs release \
+	targets tools toolsclean

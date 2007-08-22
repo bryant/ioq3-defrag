@@ -23,6 +23,8 @@ for further development. Some of the major features currently implemented are:
   * Much improved QVM tools
   * Support for various esoteric operating systems (see
     http://ioquake3.org/?page=status)
+  * cl_guid support
+  * HTTP/FTP download redirection (using cURL)
   * Multiuser support on Windows systems (user specific game data
     is stored in "%APPDATA%\Quake3")
   * Many, many bug fixes
@@ -73,9 +75,12 @@ Installation, for *nix
 It is also possible to cross compile for Windows under *nix using MinGW. A
 script is available to build a cross compilation environment from
 http://www.libsdl.org/extras/win32/cross/build-cross.sh. The gcc/binutils
-version numbers that the script downloads may need to be altered. After you
-have successfully run this script cross compiling is simply a case of using
-'./cross-make-mingw.sh' in place of 'make'.
+version numbers that the script downloads may need to be altered.
+Alternatively, your distribution may have mingw32 packages available. On
+debian/Ubuntu, these are mingw32, mingw32-runtime and mingw32-binutils. Cross
+compiling is simply a case of using './cross-make-mingw.sh' in place of 'make',
+though you may find you need to change the value of the variables in this
+script to match your environment.
 
 If the make based build system is being used (i.e. *nix or MinGW), the
 following variables may be set, either on the command line or in
@@ -91,6 +96,8 @@ Makefile.local:
   USE_SDL           - use the SDL backend where available
   USE_OPENAL        - use OpenAL where available
   USE_OPENAL_DLOPEN - link with OpenAL at runtime
+  USE_CURL          - use libcurl for http/ftp download support
+  USE_CURL_DLOPEN   - link with libcurl at runtime
   USE_CODEC_VORBIS  - enable Ogg Vorbis support
   USE_LOCAL_HEADERS - use headers local to ioq3 instead of system ones
   USE_CCACHE        - use ccache compiler caching tool
@@ -121,8 +128,6 @@ New cvars
                                       source
   s_alGraceDistance                 - after having passed MaxDistance, length
                                       until sounds are completely inaudible.
-  s_alMaxSpeakerDistance            - ET_SPEAKERS beyond this distance are
-                                      culled
   s_alDriver                        - which OpenAL library to use
   s_alDevice                        - which OpenAL device to use
   s_alAvailableDevices              - list of available OpenAL devices
@@ -146,6 +151,10 @@ New cvars
   cl_platformSensitivity            - read only, indicates the mouse input
                                       scaling
   r_ext_texture_filter_anisotropic  - anisotropic texture filtering
+  cl_guidServerUniq                 - makes cl_guid unique for each server
+  cl_cURLLib                        - filename of cURL library to load
+  sv_dlURL                          - the base of the HTTP or FTP site that
+                                      holds custom pk3 files for your server 
 
 New commands
   video [filename]        - start video capture (use with demo command)
@@ -198,6 +207,62 @@ Creating mods compatible with Q3 1.32b
   compiler. See http://www.quakesrc.org/forums/viewtopic.php?t=5665 (if it
   still exists when you read this) for more details.
 
+cl_guid Support
+  cl_guid is a cvar which is part of the client's USERINFO string.  Its value
+  is a 32 character string made up of [a-f] and [0-9] characters.  This
+  value is pseudo-unique for every player.  Id's Quake 3 Arena client also
+  sets cl_guid, but only if Punkbuster is enabled on the client.
+
+  If cl_guidServerUniq is non-zero (the default), then this value is also
+  pseudo-unique for each server a client connects to (based on IP:PORT of
+  the server). 
+
+  The purpose of cl_guid is to add an identifier for each player on
+  a server.  This value can be reset by the client at any time so it's not
+  useful for blocking access.  However, it can have at least two uses in
+  your mod's game code:
+    1) improve logging to allow statistical tools to index players by more
+       than just name
+    2) granting some weak admin rights to players without requiring passwords 
+
+Using HTTP/FTP Download Support (Server)
+  You can enable redirected downloads on your server even if it's not
+  an ioquake3 server.  You simply need to use the 'sets' command to put
+  the sv_dlURL cvar into your SERVERINFO string and ensure sv_allowDownloads
+  is set to 1
+
+  sv_dlURL is the base of the URL that contains your custom .pk3 files
+  the client will append both fs_game and the filename to the end of
+  this value.  For example, if you have sv_dlURL set to
+  "http://ioquake3.org", fs_game is "baseq3", and the client is
+  missing "test.pk3", it will attempt to download from the URL
+  "http://ioquake3.org/baseq3/test.pk3"
+
+  sv_allowDownload's value is now a bitmask made up of the following
+  flags:
+    1 - ENABLE
+    2 - do not use HTTP/FTP downloads
+    4 - do not use UDP downloads
+    8 - do not ask the client to disconnect when using HTTP/FTP
+
+  Server operators who are concerned about potential "leeching" from their
+  HTTP servers from other ioquake3 servers can make use of the HTTP_REFERER
+  that ioquake3 sets which is "ioQ3://{SERVER_IP}:{SERVER_PORT}".  For,
+  example, Apache's mod_rewrite can restrict access based on HTTP_REFERER. 
+
+Using HTTP/FTP Download Support (Client)
+  Simply setting cl_allowDownload to 1 will enable HTTP/FTP downloads
+  assuming ioquake3 was compiled with USE_CURL=1 (the default).
+  like sv_allowDownload, cl_allowDownload also uses a bitmask value
+  supporting the following flags:
+    1 - ENABLE
+    2 - do not use HTTP/FTP downloads
+    4 - do not use UDP downloads
+
+  When ioquake3 is built with USE_CURL_DLOPEN=1 (default on some platforms),
+  it will use the value of the cvar cl_cURLLib as the filename of the cURL
+  library to dynamically load. 
+
 Multiuser Support on Windows systems
   On Windows, all user specific files such as autogenerated configuration,
   demos, videos, screenshots, and autodownloaded pk3s are now saved in a
@@ -223,6 +288,28 @@ Multiuser Support on Windows systems
   cvar to the directory where ioquake3 is installed.  For example:
     ioquake3.exe +set fs_homepath "c:\ioquake3"
   Note that this cvar MUST be set as a command line parameter.
+
+SDL Keyboard Differences
+  ioquake3 clients built againt SDL (e.g. Linux and Mac OS X) have different
+  keyboard behaviour than the original Quake3 clients.
+
+    * "Caps Lock" and "Num Lock" can not be used as normal binds since they
+      do not send a KEYUP event until the key is pressed again. 
+
+    * SDL > 1.2.9 does not support disabling "Dead Key" recognition.
+      In order to send "Dead Key" characters (e.g. ~, ', `, and ^), you
+      must key a Space (or sometimes the same character again) after the
+      character to send it on many international keyboard layouts.
+
+    * The SDL client supports many more keys than the original Quake3 client.
+      For example the keys: "Windows", "SysReq", "ScrollLock", and "Break".
+      For non-US keyboards, all of the so called "World" keys are now
+      supported as well as F13, F14, F15, and the country-specific
+      mode/meta keys.
+
+  SDL's "Dead Key" behaviour makes the hard-coded toggleConsole binds ~ and `
+  annoying to use on many non-US keyboards.  In response, an additional
+  toggleConsole bind has been added on the key combination Shift-Esc.
 
 ------------------------------------------------------------- Contributing -----
 

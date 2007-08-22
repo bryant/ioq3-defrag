@@ -132,7 +132,7 @@ cvar_t	*r_fullscreen;
 
 cvar_t	*r_customwidth;
 cvar_t	*r_customheight;
-cvar_t	*r_customaspect;
+cvar_t	*r_customPixelAspect;
 
 cvar_t	*r_overBrightBits;
 cvar_t	*r_mapOverBrightBits;
@@ -307,6 +307,7 @@ static int	s_numVidModes = ( sizeof( r_vidModes ) / sizeof( r_vidModes[0] ) );
 
 qboolean R_GetModeInfo( int *width, int *height, float *windowAspect, int mode ) {
 	vidmode_t	*vm;
+	float			pixelAspect;
 
     if ( mode < -1 ) {
         return qfalse;
@@ -318,17 +319,18 @@ qboolean R_GetModeInfo( int *width, int *height, float *windowAspect, int mode )
 	if ( mode == -1 ) {
 		*width = r_customwidth->integer;
 		*height = r_customheight->integer;
-		*windowAspect = r_customaspect->value;
-		return qtrue;
+		pixelAspect = r_customPixelAspect->value;
+	}	else {
+		vm = &r_vidModes[mode];
+
+		*width  = vm->width;
+		*height = vm->height;
+		pixelAspect = vm->pixelAspect;
 	}
 
-	vm = &r_vidModes[mode];
+	*windowAspect = (float)*width / ( *height * pixelAspect );
 
-    *width  = vm->width;
-    *height = vm->height;
-    *windowAspect = (float)vm->width / ( vm->height * vm->pixelAspect );
-
-    return qtrue;
+	return qtrue;
 }
 
 /*
@@ -943,7 +945,7 @@ void R_Register( void )
 #endif
 	r_customwidth = ri.Cvar_Get( "r_customwidth", "1600", CVAR_ARCHIVE | CVAR_LATCH );
 	r_customheight = ri.Cvar_Get( "r_customheight", "1024", CVAR_ARCHIVE | CVAR_LATCH );
-	r_customaspect = ri.Cvar_Get( "r_customaspect", "1", CVAR_ARCHIVE | CVAR_LATCH );
+	r_customPixelAspect = ri.Cvar_Get( "r_customPixelAspect", "1", CVAR_ARCHIVE | CVAR_LATCH );
 	r_simpleMipMaps = ri.Cvar_Get( "r_simpleMipMaps", "1", CVAR_ARCHIVE | CVAR_LATCH );
 	r_vertexLight = ri.Cvar_Get( "r_vertexLight", "0", CVAR_ARCHIVE | CVAR_LATCH );
 	r_uiFullScreen = ri.Cvar_Get( "r_uifullscreen", "0", 0);
@@ -977,7 +979,12 @@ void R_Register( void )
 	r_dlightBacks = ri.Cvar_Get( "r_dlightBacks", "1", CVAR_ARCHIVE );
 	r_finish = ri.Cvar_Get ("r_finish", "0", CVAR_ARCHIVE);
 	r_textureMode = ri.Cvar_Get( "r_textureMode", "GL_LINEAR_MIPMAP_NEAREST", CVAR_ARCHIVE );
+#if USE_SDL_VIDEO
+	r_swapInterval = ri.Cvar_Get( "r_swapInterval", "0",
+					CVAR_ARCHIVE | CVAR_LATCH );
+#else
 	r_swapInterval = ri.Cvar_Get( "r_swapInterval", "0", CVAR_ARCHIVE );
+#endif
 	r_gamma = ri.Cvar_Get( "r_gamma", "1", CVAR_ARCHIVE );
 	r_facePlaneCull = ri.Cvar_Get ("r_facePlaneCull", "1", CVAR_ARCHIVE );
 
@@ -1077,7 +1084,7 @@ void R_Init( void ) {
 
 //	Swap_Init();
 
-	if ( (int)tess.xyz & 15 ) {
+	if ( (intptr_t)tess.xyz & 15 ) {
 		Com_Printf( "WARNING: tess.xyz not 16 byte aligned\n" );
 	}
 	Com_Memset( tess.constantColor255, 255, sizeof( tess.constantColor255 ) );

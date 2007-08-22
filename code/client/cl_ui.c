@@ -767,11 +767,11 @@ The ui module is making a system call
 intptr_t CL_UISystemCalls( intptr_t *args ) {
 	switch( args[0] ) {
 	case UI_ERROR:
-		Com_Error( ERR_DROP, "%s", VMA(1) );
+		Com_Error( ERR_DROP, "%s", (const char*)VMA(1) );
 		return 0;
 
 	case UI_PRINT:
-		Com_Printf( "%s", VMA(1) );
+		Com_Printf( "%s", (const char*)VMA(1) );
 		return 0;
 
 	case UI_MILLISECONDS:
@@ -1109,7 +1109,7 @@ intptr_t CL_UISystemCalls( intptr_t *args ) {
 
 		
 	default:
-		Com_Error( ERR_DROP, "Bad UI system trap: %i", args[0] );
+		Com_Error( ERR_DROP, "Bad UI system trap: %ld", (long int) args[0] );
 
 	}
 
@@ -1171,6 +1171,10 @@ void CL_InitUI( void ) {
 		// init for this gamestate
 		VM_Call( uivm, UI_INIT, (cls.state >= CA_AUTHORIZING && cls.state < CA_ACTIVE) );
 	}
+
+	// reset any CVAR_CHEAT cvars registered by ui
+	if ( !clc.demoplaying && !cl_connectedToCheatServer ) 
+		Cvar_SetCheatState();
 }
 
 qboolean UI_usesUniqueCDKey( void ) {

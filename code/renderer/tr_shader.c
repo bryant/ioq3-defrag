@@ -2282,9 +2282,8 @@ static shader_t *FinishShader( void ) {
 	shader.numUnfoggedPasses = stage;
 
 	// fogonly shaders don't have any normal passes
-	if ( stage == 0 ) {
+	if (stage == 0 && !shader.isSky)
 		shader.sort = SS_FOG;
-	}
 
 	// determine which stage iterator function is appropriate
 	ComputeStageIteratorFunc();
@@ -2892,7 +2891,7 @@ static void ScanAndLoadShaderFiles( void )
 		char filename[MAX_QPATH];
 
 		Com_sprintf( filename, sizeof( filename ), "scripts/%s", shaderFiles[i] );
-		ri.Printf( PRINT_ALL, "...loading '%s'\n", filename );
+		ri.Printf( PRINT_DEVELOPER, "...loading '%s'\n", filename );
 		sum += ri.FS_ReadFile( filename, (void **)&buffers[i] );
 		if ( !buffers[i] ) {
 			ri.Error( ERR_DROP, "Couldn't load %s", filename );

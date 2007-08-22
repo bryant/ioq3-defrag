@@ -26,13 +26,13 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 // q_shared.h -- included first by ALL program modules.
 // A user mod should never modify this file
 
-#define Q3_VERSION            "ioQ3 1.34-rc3"
+#define Q3_VERSION            "ioQ3 1.34-rc4"
 #ifndef SVN_VERSION
   #define SVN_VERSION Q3_VERSION
 #endif
-#define CLIENT_WINDOW_TITLE   "icculus.org/quake3"
+#define CLIENT_WINDOW_TITLE   "ioquake3"
 #define CLIENT_WINDOW_ICON    "ioq3"
-#define CONSOLE_WINDOW_TITLE  "icculus.org/quake3 console"
+#define CONSOLE_WINDOW_TITLE  "ioquake3 console"
 #define CONSOLE_WINDOW_ICON   "ioq3 console"
 // 1.32 released 7-10-2002
 
@@ -114,18 +114,19 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #ifdef Q3_VM
    typedef int intptr_t;
 #else
-# ifndef _MSC_VER
-#  include <stdint.h>
-# else
-   typedef __int64 int64_t;
-   typedef __int32 int32_t;
-   typedef __int16 int16_t;
-   typedef __int8 int8_t;
-   typedef unsigned __int64 uint64_t;
-   typedef unsigned __int32 uint32_t;
-   typedef unsigned __int16 uint16_t;
-   typedef unsigned __int8 uint8_t;
-# endif
+  #ifndef _MSC_VER
+    #include <stdint.h>
+  #else
+    #include <io.h>
+    typedef __int64 int64_t;
+    typedef __int32 int32_t;
+    typedef __int16 int16_t;
+    typedef __int8 int8_t;
+    typedef unsigned __int64 uint64_t;
+    typedef unsigned __int32 uint32_t;
+    typedef unsigned __int16 uint16_t;
+    typedef unsigned __int8 uint8_t;
+  #endif
 #endif
 
 typedef unsigned char 		byte;
@@ -529,7 +530,7 @@ vec_t VectorLengthSquared( const vec3_t v );
 vec_t Distance( const vec3_t p1, const vec3_t p2 );
 
 vec_t DistanceSquared( const vec3_t p1, const vec3_t p2 );
- 
+
 void VectorNormalizeFast( vec3_t v );
 
 void VectorInverse( vec3_t v );
@@ -561,6 +562,13 @@ void AxisCopy( vec3_t in[3], vec3_t out[3] );
 
 void SetPlaneSignbits( struct cplane_s *out );
 int BoxOnPlaneSide (vec3_t emins, vec3_t emaxs, struct cplane_s *plane);
+
+qboolean BoundsIntersect(const vec3_t mins, const vec3_t maxs,
+		const vec3_t mins2, const vec3_t maxs2);
+qboolean BoundsIntersectSphere(const vec3_t mins, const vec3_t maxs,
+		const vec3_t origin, vec_t radius);
+qboolean BoundsIntersectPoint(const vec3_t mins, const vec3_t maxs,
+		const vec3_t origin);
 
 float	AngleMod(float a);
 float	LerpAngle (float from, float to, float frac);
@@ -599,8 +607,8 @@ int		COM_GetCurrentParseLine( void );
 char	*COM_Parse( char **data_p );
 char	*COM_ParseExt( char **data_p, qboolean allowLineBreak );
 int		COM_Compress( char *data_p );
-void	COM_ParseError( char *format, ... );
-void	COM_ParseWarning( char *format, ... );
+void	COM_ParseError( char *format, ... ) __attribute__ ((format (printf, 1, 2)));
+void	COM_ParseWarning( char *format, ... ) __attribute__ ((format (printf, 1, 2)));
 //int		COM_ParseInfos( char *buf, int max, char infos[][MAX_INFO_STRING] );
 
 #define MAX_TOKENLENGTH		1024
@@ -634,10 +642,12 @@ void Parse1DMatrix (char **buf_p, int x, float *m);
 void Parse2DMatrix (char **buf_p, int y, int x, float *m);
 void Parse3DMatrix (char **buf_p, int z, int y, int x, float *m);
 
-void	QDECL Com_sprintf (char *dest, int size, const char *fmt, ...);
+void	QDECL Com_sprintf (char *dest, int size, const char *fmt, ...) __attribute__ ((format (printf, 3, 4)));
 
 char *Com_SkipTokens( char *s, int numTokens, char *sep );
 char *Com_SkipCharset( char *s, char *sep );
+
+void Com_RandomBytes( byte *string, int len );
 
 // mode parm for FS_FOpenFile
 typedef enum {
@@ -706,7 +716,7 @@ float	LittleFloat (const float *l);
 
 void	Swap_Init (void);
 */
-char	* QDECL va(char *format, ...);
+char	* QDECL va(char *format, ...) __attribute__ ((format (printf, 1, 2)));
 
 #define TRUNCATE_LENGTH	64
 void Com_TruncateLongString( char *buffer, const char *s );
@@ -725,8 +735,8 @@ qboolean Info_Validate( const char *s );
 void Info_NextPair( const char **s, char *key, char *value );
 
 // this is only here so the functions in q_shared.c and bg_*.c can link
-void	QDECL Com_Error( int level, const char *error, ... );
-void	QDECL Com_Printf( const char *msg, ... );
+void	QDECL Com_Error( int level, const char *error, ... ) __attribute__ ((format (printf, 2, 3)));
+void	QDECL Com_Printf( const char *msg, ... ) __attribute__ ((format (printf, 1, 2)));
 
 
 /*
