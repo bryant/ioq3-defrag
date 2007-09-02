@@ -220,10 +220,11 @@ static int GLimp_SetMode( int mode, qboolean fullscreen )
 				CLIENT_WINDOW_ICON.bytes_per_pixel * 8,
 				CLIENT_WINDOW_ICON.bytes_per_pixel * CLIENT_WINDOW_ICON.width,
 #ifdef Q3_LITTLE_ENDIAN
-				0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF );
+				0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF
 #else
-		0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000 );
+				0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000
 #endif
+				);
 
 		SDL_WM_SetIcon( icon, NULL );
 		SDL_FreeSurface( icon );
