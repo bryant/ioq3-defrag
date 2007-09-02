@@ -312,7 +312,7 @@ void Sys_Print( const char *msg )
 	TTY_Hide();
 #endif
 
-	if( Cvar_VariableIntegerValue( "com_ansicolor" ) )
+	if( com_ansiColor && com_ansiColor->integer )
 	{
 		char ansiColorString[ MAXPRINTMSG ];
 		Sys_ANSIColorify( msg, ansiColorString, MAXPRINTMSG );
@@ -753,8 +753,6 @@ int main( int argc, char **argv )
 	signal( SIGFPE, Sys_SigHandler );
 	signal( SIGSEGV, Sys_SigHandler );
 	signal( SIGTERM, Sys_SigHandler );
-
-	Cvar_Get( "com_ansicolor", "0", CVAR_ARCHIVE );
 
 	while( 1 )
 	{

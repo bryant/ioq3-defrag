@@ -128,7 +128,7 @@ New cvars
   s_sdlDevSamps                     - SDL DMA buffer size override
   s_sdlMixSamps                     - SDL mix buffer size override
 
-  com_ansicolor                     - enable use of ANSI escape codes in the tty
+  com_ansiColor                     - enable use of ANSI escape codes in the tty
   com_altivec                       - enable use of altivec on PowerPC systems
   s_backend                         - read only, indicates the current sound
                                       backend
