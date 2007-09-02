@@ -81,7 +81,7 @@ char *Sys_DefaultHomePath( void )
 		{
 			if( GetLastError() != ERROR_ALREADY_EXISTS )
 			{
-				Com_Printf("Unable to create directory \"%s\"\n", path);
+				Com_Printf("Unable to create directory \"%s\"\n", homePath );
 				return NULL;
 			}
 		}

@@ -695,12 +695,13 @@ static void Sys_SigHandler( int signal )
 
 	if( signalcaught )
 	{
-		printf( "DOUBLE SIGNAL FAULT: Received signal %d, exiting...\n", signal );
+		fprintf( stderr, "DOUBLE SIGNAL FAULT: Received signal %d, exiting...\n",
+			signal );
 	}
 	else
 	{
 		signalcaught = qtrue;
-		printf( "Received signal %d, exiting...\n", signal );
+		fprintf( stderr, "Received signal %d, exiting...\n", signal );
 #ifndef DEDICATED
 		CL_Shutdown();
 #endif

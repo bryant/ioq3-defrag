@@ -425,8 +425,9 @@ endif
     BASE_CFLAGS += -DUSE_CODEC_VORBIS=1
   endif
 
-  OPTIMIZE = -O3 -march=i586 -fomit-frame-pointer -ffast-math -falign-loops=2 \
-    -funroll-loops -falign-jumps=2 -falign-functions=2 -fstrength-reduce
+  OPTIMIZE = -O3 -march=i586 -fno-omit-frame-pointer -ffast-math \
+    -falign-loops=2 -funroll-loops -falign-jumps=2 -falign-functions=2 \
+    -fstrength-reduce
 
   HAVE_VM_COMPILED = true
 
