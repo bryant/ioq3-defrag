@@ -34,7 +34,40 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "../qcommon/qcommon.h"
 
 // Used to determine where to store user-specific files
-static char homePath[MAX_OSPATH];
+static char homePath[ MAX_OSPATH ] = { 0 };
+
+/*
+==================
+Sys_DefaultHomePath
+==================
+*/
+char *Sys_DefaultHomePath(void)
+{
+	char *p;
+
+	if( !*homePath )
+	{
+		if( ( p = getenv( "HOME" ) ) != NULL )
+		{
+			Q_strncpyz( homePath, p, sizeof( homePath ) );
+#ifdef MACOS_X
+			Q_strcat( homePath, sizeof( homePath ), "/Library/Application Support/Quake3" );
+#else
+			Q_strcat( homePath, sizeof( homePath ), "/.q3a" );
+#endif
+			if( mkdir( homePath, 0777 ) )
+			{
+				if( errno != EEXIST )
+				{
+					Sys_Error( "Unable to create directory \"%s\", error is %s(%d)\n",
+							homePath, strerror( errno ), errno );
+				}
+			}
+		}
+	}
+
+	return homePath;
+}
 
 /*
 ================
@@ -130,34 +163,6 @@ char *Sys_GetCurrentUser( void )
 		return "player";
 	}
 	return p->pw_name;
-}
-
-/*
-==================
-Sys_DefaultHomePath
-==================
-*/
-char *Sys_DefaultHomePath(void)
-{
-	char *p;
-
-	if (*homePath)
-		return homePath;
-
-	if ((p = getenv("HOME")) != NULL) {
-		Q_strncpyz(homePath, p, sizeof(homePath));
-#ifdef MACOS_X
-		Q_strcat(homePath, sizeof(homePath), "/Library/Application Support/Quake3");
-#else
-		Q_strcat(homePath, sizeof(homePath), "/.q3a");
-#endif
-		if (mkdir(homePath, 0777)) {
-			if (errno != EEXIST)
-				Sys_Error("Unable to create directory \"%s\", error is %s(%d)\n", homePath, strerror(errno), errno);
-		}
-		return homePath;
-	}
-	return ""; // assume current dir
 }
 
 /*

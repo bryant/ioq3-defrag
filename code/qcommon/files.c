@@ -649,8 +649,9 @@ fileHandle_t FS_SV_FOpenFileWrite( const char *filename ) {
 /*
 ===========
 FS_SV_FOpenFileRead
-search for a file somewhere below the home path, base path or cd path
-we search in that order, matching FS_SV_FOpenFileRead order
+
+Search for a file somewhere below the home path then base path
+in that order
 ===========
 */
 int FS_SV_FOpenFileRead( const char *filename, fileHandle_t *fp ) {
@@ -682,7 +683,7 @@ int FS_SV_FOpenFileRead( const char *filename, fileHandle_t *fp ) {
 	fsh[f].handleSync = qfalse;
 	if (!fsh[f].handleFiles.file.o)
 	{
-		// NOTE TTimo on non *nix systems, fs_homepath == fs_basepath, might want to avoid
+		// If fs_homepath == fs_basepath, don't bother
 		if (Q_stricmp(fs_homepath->string,fs_basepath->string))
 		{
 			// search basepath
@@ -696,11 +697,11 @@ int FS_SV_FOpenFileRead( const char *filename, fileHandle_t *fp ) {
 
 			fsh[f].handleFiles.file.o = fopen( ospath, "rb" );
 			fsh[f].handleSync = qfalse;
+		}
 
-			if ( !fsh[f].handleFiles.file.o )
-			{
-				f = 0;
-			}
+		if ( !fsh[f].handleFiles.file.o )
+		{
+			f = 0;
 		}
 	}
 
@@ -2723,7 +2724,7 @@ static void FS_Startup( const char *gameName )
 	}
 	// fs_homepath is somewhat particular to *nix systems, only add if relevant
 	// NOTE: same filtering below for mods and basegame
-	if (fs_basepath->string[0] && Q_stricmp(fs_homepath->string,fs_basepath->string)) {
+	if (fs_homepath->string[0] && Q_stricmp(fs_homepath->string,fs_basepath->string)) {
 		FS_AddGameDirectory ( fs_homepath->string, gameName );
 	}
 
