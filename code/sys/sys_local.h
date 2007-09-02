@@ -19,31 +19,25 @@ along with Quake III Arena source code; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
 */
-// linux_local.h: Linux-specific Quake3 header file
 
+#include "../qcommon/q_shared.h"
+#include "../qcommon/qcommon.h"
+
+// Queue subsystem
 void Sys_QueEvent( int time, sysEventType_t type, int value, int value2, int ptrLength, void *ptr );
 qboolean Sys_GetPacket ( netadr_t *net_from, msg_t *net_message );
 void Sys_SendKeyEvents (void);
 
 // Input subsystem
-
 void IN_Init (void);
 void IN_Frame (void);
 void IN_Shutdown (void);
-
-
 void IN_JoyMove( void );
 void IN_StartupJoystick( void );
 
-// GL subsystem
-qboolean QGL_Init( const char *dllname );
-void QGL_EnableLogging( qboolean enable );
-void QGL_Shutdown( void );
-
-// bk001130 - win32
-// void IN_JoystickCommands (void);
-
-char *strlwr (char *s);
-
-// signals.c
-void InitSig(void);
+// TTY console
+void TTY_Hide( void );
+void TTY_Show( void );
+void TTY_Shutdown( void );
+void TTY_Init( void );
+char *TTY_ConsoleInput(void);

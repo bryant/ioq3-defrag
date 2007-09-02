@@ -19,33 +19,18 @@ along with Quake III Arena source code; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
 */
-#ifndef _WIN32
-#  error You should not be including this file on this platform
-#endif
 
-#ifndef __GLW_WIN_H__
-#define __GLW_WIN_H__
-
-typedef struct
-{
-	WNDPROC		wndproc;
-
-	HDC     hDC;			// handle to device context
-	HGLRC   hGLRC;			// handle to GL rendering context
-
-	HINSTANCE hinstOpenGL;	// HINSTANCE for the OpenGL library
-
-	qboolean allowdisplaydepthchange;
-	qboolean pixelFormatSet;
-
-	int		 desktopBitsPixel;
-	int		 desktopWidth, desktopHeight;
-
-	qboolean	cdsFullscreen;
-
-	FILE *log_fp;
-} glwstate_t;
-
-extern glwstate_t glw_state;
-
+#ifdef DEDICATED
+#	include <dlfcn.h>
+#	define Sys_LoadLibrary(f) dlopen(f,RTLD_NOW)
+#	define Sys_UnloadLibrary(h) dlclose(h)
+#	define Sys_LoadFunction(h,fn) dlsym(h,fn)
+#	define Sys_LibraryError() dlerror()
+#else
+#	include "SDL.h"
+#	include "SDL_loadso.h"
+#	define Sys_LoadLibrary(f) SDL_LoadObject(f)
+#	define Sys_UnloadLibrary(h) SDL_UnloadObject(h)
+#	define Sys_LoadFunction(h,fn) SDL_LoadFunction(h,fn)
+#	define Sys_LibraryError() SDL_GetError()
 #endif

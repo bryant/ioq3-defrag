@@ -19,20 +19,41 @@ along with Quake III Arena source code; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
 */
-#if !( defined __linux__ || defined __FreeBSD__ || defined __sun || defined MACOS_X )
-#error You should include this file only on Linux/FreeBSD/Solaris platforms
-#endif
 
-#ifndef __GLW_LINUX_H__
-#define __GLW_LINUX_H__
+#include "SDL.h"
+#include "../renderer/tr_local.h"
+#include "../qcommon/qcommon.h"
 
-typedef struct
+/*
+=================
+GLimp_SetGamma
+=================
+*/
+void GLimp_SetGamma( unsigned char red[256], unsigned char green[256], unsigned char blue[256] )
 {
-	void *OpenGLLib; // instance of OpenGL library
+	Uint16 table[3][256];
+	int i, j;
 
-	FILE *log_fp;
-} glwstate_t;
+	if(r_ignorehwgamma->integer)
+		return;
 
-extern glwstate_t glw_state;
+	for (i = 0; i < 256; i++)
+	{
+		table[0][i] = ( ( ( Uint16 ) red[i] ) << 8 ) | red[i];
+		table[1][i] = ( ( ( Uint16 ) green[i] ) << 8 ) | green[i];
+		table[2][i] = ( ( ( Uint16 ) blue[i] ) << 8 ) | blue[i];
+	}
 
-#endif
+	// enforce constantly increasing
+	for (j = 0; j < 3; j++)
+	{
+		for (i = 1; i < 256; i++)
+		{
+			if (table[j][i] < table[j][i-1])
+				table[j][i] = table[j][i-1];
+		}
+	}
+
+	SDL_SetGammaRamp(table[0], table[1], table[2]);
+}
+

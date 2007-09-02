@@ -687,13 +687,11 @@ MISC
 ==============================================================
 */
 
-// TTimo
 // vsnprintf is ISO/IEC 9899:1999
 // abstracting this to make it portable
 #ifdef WIN32
 #define Q_vsnprintf _vsnprintf
 #else
-// TODO: do we need Mac define?
 #define Q_vsnprintf vsnprintf
 #endif
 
@@ -701,19 +699,19 @@ MISC
 // https://zerowing.idsoftware.com/bugzilla/show_bug.cgi?id=470
 extern char cl_cdkey[34];
 
-// returnbed by Sys_GetProcessorId
-#define CPUID_GENERIC			0			// any unrecognized processor
+// returned by Sys_GetProcessorFeatures
+typedef enum
+{
+  CF_RDTSC      = 1 << 0,
+  CF_MMX        = 1 << 1,
+  CF_MMX_EXT    = 1 << 2,
+  CF_3DNOW      = 1 << 3,
+  CF_3DNOW_EXT  = 1 << 4,
+  CF_SSE        = 1 << 5,
+  CF_SSE2       = 1 << 6,
+  CF_ALTIVEC    = 1 << 7
+} cpuFeatures_t;
 
-#define CPUID_AXP				0x10
-
-#define CPUID_INTEL_UNSUPPORTED	0x20			// Intel 386/486
-#define CPUID_INTEL_PENTIUM		0x21			// Intel Pentium or PPro
-#define CPUID_INTEL_MMX			0x22			// Intel Pentium/MMX or P2/MMX
-#define CPUID_INTEL_KATMAI		0x23			// Intel Katmai
-
-#define CPUID_AMD_3DNOW			0x30			// AMD K6 3DNOW!
-
-// TTimo
 // centralized and cleaned, that's the max string you can send to a Com_Printf / Com_DPrintf (above gets truncated)
 #define	MAXPRINTMSG	4096
 
@@ -943,7 +941,7 @@ typedef enum {
 } joystickAxis_t;
 
 typedef enum {
-  // bk001129 - make sure SE_NONE is zero
+	// SE_NONE must be zero
 	SE_NONE = 0,	// evTime is still valid
 	SE_KEY,		// evValue is a key code, evValue2 is the down flag
 	SE_CHAR,	// evValue is an ascii char
@@ -966,7 +964,6 @@ sysEvent_t	Sys_GetEvent( void );
 void	Sys_Init (void);
 
 // general development dll loading for virtual machine testing
-// fqpath param added 7/20/02 by T.Ray - Sys_LoadDll is only called in vm.c at this time
 void	* QDECL Sys_LoadDll( const char *name, char *fqpath , intptr_t (QDECL **entryPoint)(int, ...),
 				  intptr_t (QDECL *systemcalls)(intptr_t, ...) );
 void	Sys_UnloadDll( void *dllHandle );
@@ -1003,12 +1000,7 @@ qboolean Sys_RandomBytes( byte *string, int len );
 // the system console is shown when a dedicated server is running
 void	Sys_DisplaySystemConsole( qboolean show );
 
-int		Sys_GetProcessorId( void );
-
-void	Sys_BeginStreamedFile( fileHandle_t f, int readahead );
-void	Sys_EndStreamedFile( fileHandle_t f );
-int		Sys_StreamedRead( void *buffer, int size, int count, fileHandle_t f );
-void	Sys_StreamSeek( fileHandle_t f, int offset, int origin );
+cpuFeatures_t Sys_GetProcessorFeatures( void );
 
 void	Sys_ShowConsole( int level, qboolean quitOnClose );
 void	Sys_SetErrorText( const char *text );
@@ -1021,29 +1013,18 @@ qboolean	Sys_StringToAdr( const char *s, netadr_t *a );
 qboolean	Sys_IsLANAddress (netadr_t adr);
 void		Sys_ShowIP(void);
 
-qboolean	Sys_CheckCD( void );
-
 void	Sys_Mkdir( const char *path );
 char	*Sys_Cwd( void );
-void	Sys_SetDefaultCDPath(const char *path);
-char	*Sys_DefaultCDPath(void);
 void	Sys_SetDefaultInstallPath(const char *path);
 char	*Sys_DefaultInstallPath(void);
 void  Sys_SetDefaultHomePath(const char *path);
 char	*Sys_DefaultHomePath(void);
+const char *Sys_Dirname( char *path );
 
 char **Sys_ListFiles( const char *directory, const char *extension, char *filter, int *numfiles, qboolean wantsubs );
 void	Sys_FreeFileList( char **list );
 
-void	Sys_BeginProfiling( void );
-void	Sys_EndProfiling( void );
-
 qboolean Sys_LowPhysicalMemory( void );
-unsigned int Sys_ProcessorCount( void );
-
-int Sys_MonkeyShouldBeSpanked( void );
-
-qboolean Sys_DetectAltivec( void );
 
 /* This is based on the Adaptive Huffman algorithm described in Sayood's Data
  * Compression book.  The ranks are not actually stored, but implicitly defined

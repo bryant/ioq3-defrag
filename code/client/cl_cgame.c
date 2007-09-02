@@ -697,7 +697,7 @@ intptr_t CL_CgameSystemCalls( intptr_t *args ) {
 		return re.inPVS( VMA(1), VMA(2) );
 
 	default:
-	        assert(0); // bk010102
+	        assert(0);
 		Com_Error( ERR_DROP, "Bad cgame system trap: %ld", (long int) args[0] );
 	}
 	return 0;
@@ -906,8 +906,6 @@ void CL_FirstSnapshot( void ) {
 		Cbuf_AddText( cl_activeAction->string );
 		Cvar_Set( "activeAction", "" );
 	}
-	
-	Sys_BeginProfiling();
 }
 
 /*
