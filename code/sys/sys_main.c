@@ -577,10 +577,6 @@ sysEvent_t Sys_GetEvent( void )
 		return eventQue[ ( eventTail - 1 ) & MASK_QUED_EVENTS ];
 	}
 
-	// pump the message loop
-	// in vga this calls KBD_Update, under X, it calls GetEvent
-	Sys_SendKeyEvents ();
-
 	// check for console commands
 	s = Sys_ConsoleInput();
 	if ( s )
@@ -593,9 +589,6 @@ sysEvent_t Sys_GetEvent( void )
 		strcpy( b, s );
 		Sys_QueEvent( 0, SE_CONSOLE, 0, 0, len, b );
 	}
-
-	// check for other input devices
-	IN_Frame();
 
 	// check for network packets
 	MSG_Init( &netmsg, sys_packetReceived, sizeof( sys_packetReceived ) );
@@ -620,7 +613,6 @@ sysEvent_t Sys_GetEvent( void )
 	}
 
 	// create an empty event to return
-
 	memset( &ev, 0, sizeof( ev ) );
 	ev.evTime = Sys_Milliseconds();
 
@@ -768,6 +760,9 @@ int main( int argc, char **argv )
 		if( !( appState & SDL_APPACTIVE ) )
 			SDL_Delay( 32 );
 #endif
+
+		// Check for input
+		IN_Frame( );
 
 		Com_Frame( );
 	}

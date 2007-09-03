@@ -367,10 +367,9 @@ void IN_Init(void)
 
 #ifdef MACOS_X_ACCELERATION_HACK
 	in_disablemacosxmouseaccel = Cvar_Get ("in_disablemacosxmouseaccel", "1", CVAR_ARCHIVE);
-	Cvar_Set( "cl_platformSensitivity", "1.0" );
-#else
-	Cvar_Set( "cl_platformSensitivity", "2.0" );
 #endif
+
+	Cvar_Set( "cl_platformSensitivity", "1.0" );
 
 	SDL_EnableUNICODE(1);
 	SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
@@ -407,45 +406,11 @@ void IN_Shutdown(void)
 
 /*
 ===============
-IN_Frame
+IN_ProcessEvents
 ===============
 */
-void IN_Frame (void)
+static void IN_ProcessEvents( void )
 {
-	IN_JoyMove(); // FIXME: disable if on desktop?
-
-	if ( cls.keyCatchers & KEYCATCH_CONSOLE )
-	{
-		// temporarily deactivate if not in the game and
-		// running on the desktop
-		// voodoo always counts as full screen
-		if( Cvar_VariableValue ("r_fullscreen") == 0 )
-		{
-			IN_DeactivateMouse ();
-			return;
-		}
-	}
-
-	IN_ActivateMouse();
-}
-
-/*
-===============
-IN_Activate
-===============
-*/
-void IN_Activate(void)
-{
-}
-
-/*
-===============
-Sys_SendKeyEvents
-===============
-*/
-void Sys_SendKeyEvents (void)
-{
-	const int t = 0;  // always just use the current time.
 	SDL_Event e;
 	const char *p = NULL;
 	int key = 0;
@@ -453,21 +418,16 @@ void Sys_SendKeyEvents (void)
 	if( !SDL_WasInit( SDL_INIT_VIDEO ) )
 			return;
 
-	if (cls.keyCatchers == 0)
+	if( cls.keyCatchers == 0 && sdlrepeatenabled )
 	{
-		if (sdlrepeatenabled)
-		{
-			SDL_EnableKeyRepeat(0, 0);
-			sdlrepeatenabled = qfalse;
-		}
+		SDL_EnableKeyRepeat( 0, 0 );
+		sdlrepeatenabled = qfalse;
 	}
-	else
+	else if( !sdlrepeatenabled )
 	{
-		if (!sdlrepeatenabled)
-		{
-			SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
-			sdlrepeatenabled = qtrue;
-		}
+		SDL_EnableKeyRepeat( SDL_DEFAULT_REPEAT_DELAY,
+			SDL_DEFAULT_REPEAT_INTERVAL );
+		sdlrepeatenabled = qtrue;
 	}
 
 	while (SDL_PollEvent(&e))
@@ -477,29 +437,24 @@ void Sys_SendKeyEvents (void)
 			case SDL_KEYDOWN:
 				IN_PrintKey(&e);
 				p = IN_TranslateSDLToQ3Key(&e.key.keysym, &key);
-				if (key)
+				if( key )
+					Sys_QueEvent( 0, SE_KEY, key, qtrue, 0, NULL );
+
+				if( p )
 				{
-					Sys_QueEvent( t, SE_KEY, key, qtrue, 0, NULL );
-				}
-				if (p)
-				{
-					while (*p)
-					{
-						Sys_QueEvent( t, SE_CHAR, *p++, 0, 0, NULL );
-					}
+					while( *p )
+						Sys_QueEvent( 0, SE_CHAR, *p++, 0, 0, NULL );
 				}
 				break;
 
 			case SDL_KEYUP:
 				IN_TranslateSDLToQ3Key(&e.key.keysym, &key);
-				Sys_QueEvent( t, SE_KEY, key, qfalse, 0, NULL );
+				Sys_QueEvent( 0, SE_KEY, key, qfalse, 0, NULL );
 				break;
 
 			case SDL_MOUSEMOTION:
 				if (mouse_active)
-				{
-					Sys_QueEvent( t, SE_MOUSE, e.motion.xrel, e.motion.yrel, 0, NULL );
-				}
+					Sys_QueEvent( 0, SE_MOUSE, e.motion.xrel, e.motion.yrel, 0, NULL );
 				break;
 
 			case SDL_MOUSEBUTTONDOWN:
@@ -517,17 +472,38 @@ void Sys_SendKeyEvents (void)
 						case 7:   b = K_MOUSE5;     break;
 						default:  b = K_AUX1 + (e.button.button - 8)%16; break;
 					}
-					Sys_QueEvent( t, SE_KEY, b, (e.type == SDL_MOUSEBUTTONDOWN?qtrue:qfalse), 0, NULL );
+					Sys_QueEvent( 0, SE_KEY, b,
+						( e.type == SDL_MOUSEBUTTONDOWN ? qtrue : qfalse ), 0, NULL );
 				}
 				break;
 
 			case SDL_QUIT:
 				Sys_Quit();
 				break;
+
+			default:
+				break;
 		}
 	}
 }
 
+/*
+===============
+IN_Frame
+===============
+*/
+void IN_Frame (void)
+{
+	IN_JoyMove( );
+
+	// Release the mouse if the console if down and we're windowed
+	if( ( cls.keyCatchers & KEYCATCH_CONSOLE ) && !r_fullscreen->integer )
+		IN_DeactivateMouse( );
+	else
+		IN_ActivateMouse( );
+
+	IN_ProcessEvents( );
+}
 
 // We translate axes movement into keypresses
 static int joy_keys[16] = {
