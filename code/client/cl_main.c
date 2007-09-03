@@ -466,20 +466,21 @@ void CL_DemoCompleted( void )
 					numFrames = clc.timeDemoFrames - 1;
 
 				f = FS_FOpenFileWrite( cl_timedemoLog->string );
-				if( !f )
+				if( f )
+				{
+					FS_Printf( f, "# %s", buffer );
+
+					for( i = 0; i < numFrames; i++ )
+						FS_Printf( f, "%d\n", clc.timeDemoDurations[ i ] );
+
+					FS_FCloseFile( f );
+					Com_Printf( "%s written\n", cl_timedemoLog->string );
+				}
+				else
 				{
 					Com_Printf( "Couldn't open %s for writing\n",
 							cl_timedemoLog->string );
-					return;
 				}
-
-				FS_Printf( f, "# %s", buffer );
-
-				for( i = 0; i < numFrames; i++ )
-					FS_Printf( f, "%d\n", clc.timeDemoDurations[ i ] );
-
-				FS_FCloseFile( f );
-				Com_Printf( "%s written\n", cl_timedemoLog->string );
 			}
 		}
 	}
