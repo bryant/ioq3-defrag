@@ -43,6 +43,7 @@ cvar_t	*cl_freezeDemo;
 cvar_t	*cl_shownet;
 cvar_t	*cl_showSend;
 cvar_t	*cl_timedemo;
+cvar_t	*cl_timedemoLog;
 cvar_t	*cl_autoRecordDemo;
 cvar_t	*cl_aviFrameRate;
 cvar_t	*cl_aviMotionJpeg;
@@ -393,17 +394,93 @@ CLIENT SIDE DEMO PLAYBACK
 
 /*
 =================
+CL_DemoFrameDurationSDev
+=================
+*/
+static float CL_DemoFrameDurationSDev( void )
+{
+	int i;
+	int numFrames;
+	float mean = 0.0f;
+	float variance = 0.0f;
+
+	if( ( clc.timeDemoFrames - 1 ) > MAX_TIMEDEMO_DURATIONS )
+		numFrames = MAX_TIMEDEMO_DURATIONS;
+	else
+		numFrames = clc.timeDemoFrames - 1;
+
+	for( i = 0; i < numFrames; i++ )
+		mean += clc.timeDemoDurations[ i ];
+	mean /= numFrames;
+
+	for( i = 0; i < numFrames; i++ )
+	{
+		float x = clc.timeDemoDurations[ i ];
+
+		variance += ( ( x - mean ) * ( x - mean ) );
+	}
+	variance /= numFrames;
+
+	return sqrt( variance );
+}
+
+/*
+=================
 CL_DemoCompleted
 =================
 */
-void CL_DemoCompleted( void ) {
-	if (cl_timedemo && cl_timedemo->integer) {
+void CL_DemoCompleted( void )
+{
+	char buffer[ MAX_STRING_CHARS ];
+
+	if( cl_timedemo && cl_timedemo->integer )
+	{
 		int	time;
 		
 		time = Sys_Milliseconds() - clc.timeDemoStart;
-		if ( time > 0 ) {
-			Com_Printf ("%i frames, %3.1f seconds: %3.1f fps\n", clc.timeDemoFrames,
-			time/1000.0, clc.timeDemoFrames*1000.0 / time);
+		if( time > 0 )
+		{
+			// Millisecond times are frame durations:
+			// minimum/average/maximum/std deviation
+			Com_sprintf( buffer, sizeof( buffer ),
+					"%i frames %3.1f seconds %3.1f fps %d.0/%.1f/%d.0/%.1f ms\n",
+					clc.timeDemoFrames,
+					time/1000.0,
+					clc.timeDemoFrames*1000.0 / time,
+					clc.timeDemoMinDuration,
+					time / (float)clc.timeDemoFrames,
+					clc.timeDemoMaxDuration,
+					CL_DemoFrameDurationSDev( ) );
+			Com_Printf( buffer );
+
+			// Write a log of all the frame durations
+			if( cl_timedemoLog && strlen( cl_timedemoLog->string ) > 0 )
+			{
+				int i;
+				int numFrames;
+				fileHandle_t f;
+
+				if( ( clc.timeDemoFrames - 1 ) > MAX_TIMEDEMO_DURATIONS )
+					numFrames = MAX_TIMEDEMO_DURATIONS;
+				else
+					numFrames = clc.timeDemoFrames - 1;
+
+				f = FS_FOpenFileWrite( cl_timedemoLog->string );
+				if( !f )
+				{
+					Com_Printf( "Couldn't open %s for writing\n",
+							cl_timedemoLog->string );
+					return;
+				}
+
+				FS_Printf( f, "# %s", buffer );
+
+				for( i = 0; i < numFrames; i++ )
+					FS_Printf( f, "%d\n", clc.timeDemoDurations[ i ] );
+
+				FS_FCloseFile( f );
+				Com_Printf( "%s written\n", cl_timedemoLog->string );
+			}
 		}
 	}
 
@@ -2586,6 +2663,7 @@ void CL_Init( void ) {
 	cl_activeAction = Cvar_Get( "activeAction", "", CVAR_TEMP );
 
 	cl_timedemo = Cvar_Get ("timedemo", "0", 0);
+	cl_timedemoLog = Cvar_Get ("cl_timedemoLog", "", CVAR_ARCHIVE);
 	cl_autoRecordDemo = Cvar_Get ("cl_autoRecordDemo", "0", CVAR_ARCHIVE);
 	cl_aviFrameRate = Cvar_Get ("cl_aviFrameRate", "25", CVAR_ARCHIVE);
 	cl_aviMotionJpeg = Cvar_Get ("cl_aviMotionJpeg", "1", CVAR_ARCHIVE);
