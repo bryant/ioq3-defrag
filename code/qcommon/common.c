@@ -56,7 +56,6 @@ static fileHandle_t logfile;
 fileHandle_t	com_journalFile;			// events are written here
 fileHandle_t	com_journalDataFile;		// config files are written here
 
-cvar_t	*com_viewlog;
 cvar_t	*com_speeds;
 cvar_t	*com_developer;
 cvar_t	*com_dedicated;
@@ -159,10 +158,9 @@ void QDECL Com_Printf( const char *fmt, ... ) {
 		return;
 	}
 
-	// echo to console if we're not a dedicated server
-	if ( com_dedicated && !com_dedicated->integer ) {
-		CL_ConsolePrint( msg );
-	}
+#ifndef DEDICATED
+	CL_ConsolePrint( msg );
+#endif
 
 	// echo to dedicated console and early console
 	Sys_Print( msg );
@@ -2449,7 +2447,6 @@ void Com_Init( char *commandLine ) {
 	com_fixedtime = Cvar_Get ("fixedtime", "0", CVAR_CHEAT);
 	com_showtrace = Cvar_Get ("com_showtrace", "0", CVAR_CHEAT);
 	com_dropsim = Cvar_Get ("com_dropsim", "0", CVAR_CHEAT);
-	com_viewlog = Cvar_Get( "viewlog", "0", CVAR_CHEAT );
 	com_speeds = Cvar_Get ("com_speeds", "0", 0);
 	com_timedemo = Cvar_Get ("timedemo", "0", CVAR_CHEAT);
 	com_cameraMode = Cvar_Get ("com_cameraMode", "0", CVAR_CHEAT);
@@ -2464,12 +2461,6 @@ void Com_Init( char *commandLine ) {
 	com_ansiColor = Cvar_Get( "com_ansiColor", "0", CVAR_ARCHIVE );
 
 	com_introPlayed = Cvar_Get( "com_introplayed", "0", CVAR_ARCHIVE);
-
-	if ( com_dedicated->integer ) {
-		if ( !com_viewlog->integer ) {
-			Cvar_Set( "viewlog", "1" );
-		}
-	}
 
 	if ( com_developer && com_developer->integer ) {
 		Cmd_AddCommand ("error", Com_Error_f);
@@ -2489,10 +2480,9 @@ void Com_Init( char *commandLine ) {
 	SV_Init();
 
 	com_dedicated->modified = qfalse;
-	if ( !com_dedicated->integer ) {
-		CL_Init();
-		Sys_ShowConsole( com_viewlog->integer, qfalse );
-	}
+#ifndef DEDICATED
+	CL_Init();
+#endif
 
 	// set com_frameTime so that if a map is started on the
 	// command line it will still be able to count on com_frameTime
@@ -2514,7 +2504,7 @@ void Com_Init( char *commandLine ) {
 	// start in full screen ui mode
 	Cvar_Set("r_uiFullScreen", "1");
 
-	CL_StartHunkUsers();
+	CL_StartHunkUsers( qfalse );
 
 	// make sure single player is off by default
 	Cvar_Set("ui_singlePlayerActive", "0");
@@ -2694,14 +2684,6 @@ void Com_Frame( void ) {
 	// write config file if anything changed
 	Com_WriteConfiguration(); 
 
-	// if "viewlog" has been modified, show or hide the log console
-	if ( com_viewlog->modified ) {
-		if ( !com_dedicated->value ) {
-			Sys_ShowConsole( com_viewlog->integer, qfalse );
-		}
-		com_viewlog->modified = qfalse;
-	}
-
 	//
 	// main event loop
 	//
@@ -2754,42 +2736,39 @@ void Com_Frame( void ) {
 		Cvar_Get( "dedicated", "0", 0 );
 		com_dedicated->modified = qfalse;
 		if ( !com_dedicated->integer ) {
-			CL_Init();
-			Sys_ShowConsole( com_viewlog->integer, qfalse );
-		} else {
-			CL_Shutdown();
-			Sys_ShowConsole( 1, qtrue );
+			SV_Shutdown( "dedicated set to 0" );
+			CL_FlushMemory();
 		}
 	}
 
+#ifndef DEDICATED
 	//
 	// client system
 	//
-	if ( !com_dedicated->integer ) {
-		//
-		// run event loop a second time to get server to client packets
-		// without a frame of latency
-		//
-		if ( com_speeds->integer ) {
-			timeBeforeEvents = Sys_Milliseconds ();
-		}
-		Com_EventLoop();
-		Cbuf_Execute ();
-
-
-		//
-		// client side
-		//
-		if ( com_speeds->integer ) {
-			timeBeforeClient = Sys_Milliseconds ();
-		}
-
-		CL_Frame( msec );
-
-		if ( com_speeds->integer ) {
-			timeAfter = Sys_Milliseconds ();
-		}
+	//
+	// run event loop a second time to get server to client packets
+	// without a frame of latency
+	//
+	if ( com_speeds->integer ) {
+		timeBeforeEvents = Sys_Milliseconds ();
 	}
+	Com_EventLoop();
+	Cbuf_Execute ();
+
+
+	//
+	// client side
+	//
+	if ( com_speeds->integer ) {
+		timeBeforeClient = Sys_Milliseconds ();
+	}
+
+	CL_Frame( msec );
+
+	if ( com_speeds->integer ) {
+		timeAfter = Sys_Milliseconds ();
+	}
+#endif
 
 	//
 	// report timing information

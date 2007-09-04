@@ -736,7 +736,7 @@ void CL_FlushMemory( void ) {
 		Hunk_ClearToMark();
 	}
 
-	CL_StartHunkUsers();
+	CL_StartHunkUsers( qfalse );
 }
 
 /*
@@ -749,6 +749,12 @@ memory on the hunk from cgame, ui, and renderer
 =====================
 */
 void CL_MapLoading( void ) {
+	if ( com_dedicated->integer ) {
+		cls.state = CA_DISCONNECTED;
+		cls.keyCatchers = KEYCATCH_CONSOLE;
+		return;
+	}
+
 	if ( !com_cl_running->integer ) {
 		return;
 	}
@@ -1350,7 +1356,7 @@ void CL_Vid_Restart_f( void ) {
 	CL_InitRef();
 
 	// startup all the client stuff
-	CL_StartHunkUsers();
+	CL_StartHunkUsers( qfalse );
 
 	// start the cgame if connected
 	if ( cls.state > CA_CONNECTED && cls.state != CA_CINEMATIC ) {
@@ -2390,7 +2396,7 @@ After the server has cleared the hunk, these will need to be restarted
 This is the only place that any of these functions are called from
 ============================
 */
-void CL_StartHunkUsers( void ) {
+void CL_StartHunkUsers( qboolean rendererOnly ) {
 	if (!com_cl_running) {
 		return;
 	}
@@ -2402,6 +2408,10 @@ void CL_StartHunkUsers( void ) {
 	if ( !cls.rendererStarted ) {
 		cls.rendererStarted = qtrue;
 		CL_InitRenderer();
+	}
+
+	if ( rendererOnly ) {
+		return;
 	}
 
 	if ( !cls.soundStarted ) {

@@ -1202,7 +1202,7 @@ void CL_KeyEvent (int key, qboolean down, unsigned time) {
 			if ( cls.state == CA_ACTIVE && !clc.demoplaying ) {
 				VM_Call( uivm, UI_SET_ACTIVE_MENU, UIMENU_INGAME );
 			}
-			else {
+			else if ( cls.state != CA_DISCONNECTED ) {
 				CL_Disconnect_f();
 				S_StopAllSounds();
 				VM_Call( uivm, UI_SET_ACTIVE_MENU, UIMENU_MAIN );
@@ -1217,19 +1217,21 @@ void CL_KeyEvent (int key, qboolean down, unsigned time) {
 	//
 	// key up events only perform actions if the game key binding is
 	// a button command (leading + sign).  These will be processed even in
-	// console mode and menu mode, to keep the character from continuing 
+	// console mode and menu mode, to keep the character from continuing
 	// an action started before a mode switch.
 	//
-	if (!down) {
-		kb = keys[key].binding;
+	if (!down ) {
+		if ( cls.state != CA_DISCONNECTED ) {
+			kb = keys[key].binding;
 
-		CL_AddKeyUpCommands( key, kb, time );
+			CL_AddKeyUpCommands( key, kb, time );
 
-		if ( cls.keyCatchers & KEYCATCH_UI && uivm ) {
-			VM_Call( uivm, UI_KEY_EVENT, key, down );
-		} else if ( cls.keyCatchers & KEYCATCH_CGAME && cgvm ) {
-			VM_Call( cgvm, CG_KEY_EVENT, key, down );
-		} 
+			if ( cls.keyCatchers & KEYCATCH_UI && uivm ) {
+				VM_Call( uivm, UI_KEY_EVENT, key, down );
+			} else if ( cls.keyCatchers & KEYCATCH_CGAME && cgvm ) {
+				VM_Call( cgvm, CG_KEY_EVENT, key, down );
+			}
+		}
 
 		return;
 	}
@@ -1258,7 +1260,7 @@ void CL_KeyEvent (int key, qboolean down, unsigned time) {
 				Com_Printf ("%s is unbound, use controls menu to set.\n"
 					, Key_KeynumToString( key ) );
 			}
-		} else if (kb[0] == '+') {	
+		} else if (kb[0] == '+') {
 			int i;
 			char button[1024], *buttonPtr;
 			buttonPtr = button;

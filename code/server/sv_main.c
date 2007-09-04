@@ -771,13 +771,12 @@ void SV_Frame( int msec ) {
 
 	if (!com_sv_running->integer)
 	{
-		if(com_dedicated->integer)
-		{
-			// Block indefinitely until something interesting happens
-			// on STDIN.
-			NET_Sleep(-1);
-		}
-		
+		// Running as a server, but no map loaded
+#ifdef DEDICATED
+		// Block until something interesting happens
+		NET_Sleep(-1);
+#endif
+
 		return;
 	}
 

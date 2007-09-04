@@ -746,7 +746,6 @@ extern	cvar_t	*com_speeds;
 extern	cvar_t	*com_timescale;
 extern	cvar_t	*com_sv_running;
 extern	cvar_t	*com_cl_running;
-extern	cvar_t	*com_viewlog;			// 0 = hidden, 1 = visible, 2 = minimized
 extern	cvar_t	*com_version;
 extern	cvar_t	*com_blood;
 extern	cvar_t	*com_buildScript;		// for building release pak files
@@ -896,7 +895,7 @@ void CL_ShutdownAll( void );
 void CL_FlushMemory( void );
 // dump all memory on an error
 
-void CL_StartHunkUsers( void );
+void CL_StartHunkUsers( qboolean rendererOnly );
 // start all the client stuff using the hunk
 
 void Key_WriteBindings( fileHandle_t f );
@@ -1003,7 +1002,6 @@ void	Sys_DisplaySystemConsole( qboolean show );
 
 cpuFeatures_t Sys_GetProcessorFeatures( void );
 
-void	Sys_ShowConsole( int level, qboolean quitOnClose );
 void	Sys_SetErrorText( const char *text );
 
 void	Sys_SendPacket( int length, const void *data, netadr_t to );

@@ -389,7 +389,7 @@ void CL_FlushMemory(void);
 void CL_ShutdownAll(void);
 void CL_AddReliableCommand( const char *cmd );
 
-void CL_StartHunkUsers( void );
+void CL_StartHunkUsers( qboolean rendererOnly );
 
 void CL_Disconnect_f (void);
 void CL_GetChallengePacket (void);

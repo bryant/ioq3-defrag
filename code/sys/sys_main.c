@@ -750,15 +750,18 @@ int main( int argc, char **argv )
 	while( 1 )
 	{
 #ifndef DEDICATED
-		int appState = SDL_GetAppState( );
+		if( !com_dedicated->integer )
+		{
+			int appState = SDL_GetAppState( );
 
-		// If we have no input focus at all, sleep a bit
-		if( !( appState & ( SDL_APPMOUSEFOCUS | SDL_APPINPUTFOCUS ) ) )
-			SDL_Delay( 16 );
+			// If we have no input focus at all, sleep a bit
+			if( !( appState & ( SDL_APPMOUSEFOCUS | SDL_APPINPUTFOCUS ) ) )
+				SDL_Delay( 16 );
 
-		// If we're minimised, sleep a bit more
-		if( !( appState & SDL_APPACTIVE ) )
-			SDL_Delay( 32 );
+			// If we're minimised, sleep a bit more
+			if( !( appState & SDL_APPACTIVE ) )
+				SDL_Delay( 32 );
+		}
 #endif
 
 		// Check for input

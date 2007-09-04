@@ -1026,7 +1026,7 @@ void NET_Shutdown( void ) {
 ====================
 NET_Sleep
 
-Sleeps msec or until net socket is ready
+Sleeps msec or until something happens on the network or stdin
 ====================
 */
 void NET_Sleep( int msec ) {
@@ -1038,6 +1038,10 @@ void NET_Sleep( int msec ) {
 		return; // we're not a server, just run full speed
 
 	FD_ZERO(&fdset);
+
+	FD_SET(fileno(stdin), &fdset);
+	highestfd = fileno(stdin) + 1;
+
 	if(ip_socket)
 	{
 		FD_SET(ip_socket, &fdset); // network socket
