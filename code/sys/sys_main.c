@@ -644,32 +644,6 @@ void Sys_ParseArgs( int argc, char **argv )
 
 #ifndef DEFAULT_BASEDIR
 # ifdef MACOS_X
-/*
-=================
-Sys_EscapeAppBundle
-
-Discovers if passed dir is suffixed with the directory structure of a Mac OS X
-.app bundle. If it is, the .app directory structure is stripped off the end and
-the result is returned. If not, dir is returned untouched.
-=================
-*/
-char *Sys_StripAppBundle( char *dir )
-{
-	static char cwd[MAX_OSPATH];
-
-	Q_strncpyz(cwd, dir, sizeof(cwd));
-	if(strcmp(basename(cwd), "MacOS"))
-		return dir;
-	Q_strncpyz(cwd, dirname(cwd), sizeof(cwd));
-	if(strcmp(basename(cwd), "Contents"))
-		return dir;
-	Q_strncpyz(cwd, dirname(cwd), sizeof(cwd));
-	if(!strstr(basename(cwd), ".app"))
-		return dir;
-	Q_strncpyz(cwd, dirname(cwd), sizeof(cwd));
-	return cwd;
-}
-		// if run from an .app bundle, we want to also search its containing dir
 #		define DEFAULT_BASEDIR Sys_StripAppBundle(Sys_BinaryPath())
 #	else
 #		define DEFAULT_BASEDIR Sys_BinaryPath()

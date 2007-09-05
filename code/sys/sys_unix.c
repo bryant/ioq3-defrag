@@ -411,3 +411,30 @@ void Sys_FreeFileList( char **list )
 	Z_Free( list );
 }
 
+#ifdef MACOS_X
+/*
+=================
+Sys_StripAppBundle
+
+Discovers if passed dir is suffixed with the directory structure of a Mac OS X
+.app bundle. If it is, the .app directory structure is stripped off the end and
+the result is returned. If not, dir is returned untouched.
+=================
+*/
+char *Sys_StripAppBundle( char *dir )
+{
+        static char cwd[MAX_OSPATH];
+
+        Q_strncpyz(cwd, dir, sizeof(cwd));
+        if(strcmp(basename(cwd), "MacOS"))
+                return dir;
+        Q_strncpyz(cwd, dirname(cwd), sizeof(cwd));
+        if(strcmp(basename(cwd), "Contents"))
+                return dir;
+        Q_strncpyz(cwd, dirname(cwd), sizeof(cwd));
+        if(!strstr(basename(cwd), ".app"))
+                return dir;
+        Q_strncpyz(cwd, dirname(cwd), sizeof(cwd));
+        return cwd;
+}
+#endif // MACOS_X

@@ -40,3 +40,7 @@ void TTY_Show( void );
 void TTY_Shutdown( void );
 void TTY_Init( void );
 char *TTY_ConsoleInput(void);
+
+#ifdef MACOS_X
+char *Sys_StripAppBundle( char *pwd );
+#endif
