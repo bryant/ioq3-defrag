@@ -80,6 +80,8 @@ cvar_t  *cl_packetdelay;
 cvar_t  *sv_packetdelay;
 cvar_t	*com_cameraMode;
 cvar_t	*com_ansiColor;
+cvar_t	*com_unfocused;
+cvar_t	*com_minimized;
 
 // com_speeds times
 int		time_game;
@@ -2459,6 +2461,9 @@ void Com_Init( char *commandLine ) {
 	com_cl_running = Cvar_Get ("cl_running", "0", CVAR_ROM);
 	com_buildScript = Cvar_Get( "com_buildScript", "0", 0 );
 	com_ansiColor = Cvar_Get( "com_ansiColor", "0", CVAR_ARCHIVE );
+
+	com_unfocused = Cvar_Get( "com_unfocused", "0", CVAR_ROM );
+	com_minimized = Cvar_Get( "com_minimized", "0", CVAR_ROM );
 
 	com_introPlayed = Cvar_Get( "com_introplayed", "0", CVAR_ARCHIVE);
 

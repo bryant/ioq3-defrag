@@ -511,8 +511,20 @@ qboolean Cvar_Command( void ) {
 	if ( Cmd_Argc() == 1 ) {
 		Com_TruncateLongString( string, v->string );
 		Com_TruncateLongString( resetString, v->resetString );
-		Com_Printf ("\"%s\" is:\"%s" S_COLOR_WHITE "\" default:\"%s" S_COLOR_WHITE "\"\n",
-				v->name, string, resetString );
+		Com_Printf ("\"%s\" is:\"%s" S_COLOR_WHITE "\"",
+				v->name, string );
+
+		if ( !( v->flags & CVAR_ROM ) ) {
+			if ( !Q_stricmp( string, resetString ) ) {
+				Com_Printf (", the default" );
+			} else {
+				Com_Printf (" default:\"%s" S_COLOR_WHITE "\"",
+						resetString );
+			}
+		}
+
+		Com_Printf ("\n");
+
 		if ( v->latchedString ) {
 			Com_TruncateLongString( latchedString, v->latchedString );
 			Com_Printf( "latched: \"%s\"\n", latchedString );

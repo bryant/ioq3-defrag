@@ -47,16 +47,16 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 static SDL_Joystick *stick = NULL;
 
-static qboolean mouse_avail = qfalse;
-static qboolean mouse_active = qfalse;
-static qboolean sdlrepeatenabled = qfalse;
+static qboolean mouseAvailable = qfalse;
+static qboolean mouseActive = qfalse;
+static qboolean keyRepeatEnabled = qfalse;
 
 static cvar_t *in_mouse;
 #ifdef MACOS_X_ACCELERATION_HACK
 static cvar_t *in_disablemacosxmouseaccel;
 static double originalMouseSpeed = -1.0;
 #endif
-cvar_t *in_nograb; // this is strictly for developers
+cvar_t *in_nograb;
 
 cvar_t *in_joystick          = NULL;
 cvar_t *in_joystickDebug     = NULL;
@@ -243,11 +243,11 @@ IN_ActivateMouse
 */
 void IN_ActivateMouse( void )
 {
-	if (!mouse_avail || !SDL_WasInit( SDL_INIT_VIDEO ) )
+	if (!mouseAvailable || !SDL_WasInit( SDL_INIT_VIDEO ) )
 		return;
 
 #ifdef MACOS_X_ACCELERATION_HACK
-	if (!mouse_active && mouse_avail) // mac os x mouse accel hack
+	if (!mouseActive) // mac os x mouse accel hack
 	{
 		// Save the status of mouse acceleration
 		originalMouseSpeed = -1.0; // in case of error
@@ -281,23 +281,34 @@ void IN_ActivateMouse( void )
 	}
 #endif
 
-	if (!mouse_active)
+	if( !mouseActive )
 	{
-		if (!in_nograb->value)
-		{
-			SDL_WM_GrabInput(SDL_GRAB_ON);
-			SDL_ShowCursor(0);
+		SDL_WM_GrabInput( SDL_GRAB_ON );
+		SDL_ShowCursor( 0 );
 
 #ifdef MACOS_X_CURSOR_HACK
-			// This is a bug in the current SDL/macosx...have to toggle it a few
-			//  times to get the cursor to hide.
-			SDL_ShowCursor(1);
-			SDL_ShowCursor(0);
+		// This is a bug in the current SDL/macosx...have to toggle it a few
+		//  times to get the cursor to hide.
+		SDL_ShowCursor( 1 );
+		SDL_ShowCursor( 0 );
 #endif
-		}
-
-		mouse_active = qtrue;
 	}
+
+	// in_nograb makes no sense unless fullscreen
+	if( !r_fullscreen->integer )
+	{
+		if( in_nograb->modified || !mouseActive )
+		{
+			if( in_nograb->integer )
+				SDL_WM_GrabInput( SDL_GRAB_OFF );
+			else
+				SDL_WM_GrabInput( SDL_GRAB_ON );
+
+			in_nograb->modified = qfalse;
+		}
+	}
+
+	mouseActive = qtrue;
 }
 
 /*
@@ -307,11 +318,11 @@ IN_DeactivateMouse
 */
 void IN_DeactivateMouse( void )
 {
-	if (!mouse_avail || !SDL_WasInit( SDL_INIT_VIDEO ) )
+	if (!mouseAvailable || !SDL_WasInit( SDL_INIT_VIDEO ) )
 		return;
 
 #ifdef MACOS_X_ACCELERATION_HACK
-	if (mouse_active) // mac os x mouse accel hack
+	if (mouseActive) // mac os x mouse accel hack
 	{
 		if(originalMouseSpeed != -1.0)
 		{
@@ -329,15 +340,12 @@ void IN_DeactivateMouse( void )
 	}
 #endif
 
-	if (mouse_active)
+	if( mouseActive )
 	{
-		if (!in_nograb->value)
-		{
-			SDL_ShowCursor(1);
-			SDL_WM_GrabInput(SDL_GRAB_OFF);
-		}
+		SDL_ShowCursor( 1 );
+		SDL_WM_GrabInput( SDL_GRAB_OFF );
 
-		mouse_active = qfalse;
+		mouseActive = qfalse;
 	}
 }
 
@@ -355,11 +363,10 @@ void IN_Init(void)
 	}
 
 	Com_DPrintf ("\n------- Input Initialization -------\n");
+
 	// mouse variables
 	in_mouse = Cvar_Get ("in_mouse", "1", CVAR_ARCHIVE);
-
-	// developer feature, allows to break without loosing mouse pointer
-	in_nograb = Cvar_Get ("in_nograb", "0", 0);
+	in_nograb = Cvar_Get ("in_nograb", "0", CVAR_ARCHIVE);
 
 	in_joystick = Cvar_Get ("in_joystick", "0", CVAR_ARCHIVE|CVAR_LATCH);
 	in_joystickDebug = Cvar_Get ("in_debugjoystick", "0", CVAR_TEMP);
@@ -373,12 +380,12 @@ void IN_Init(void)
 
 	SDL_EnableUNICODE(1);
 	SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
-	sdlrepeatenabled = qtrue;
+	keyRepeatEnabled = qtrue;
 
 	if (in_mouse->value)
-		mouse_avail = qtrue;
+		mouseAvailable = qtrue;
 	else
-		mouse_avail = qfalse;
+		mouseAvailable = qfalse;
 
 	IN_StartupJoystick( );
 	Com_DPrintf ("------------------------------------\n");
@@ -393,7 +400,7 @@ void IN_Shutdown(void)
 {
 	IN_DeactivateMouse();
 
-	mouse_avail = qfalse;
+	mouseAvailable = qfalse;
 
 	if (stick)
 	{
@@ -418,16 +425,16 @@ static void IN_ProcessEvents( void )
 	if( !SDL_WasInit( SDL_INIT_VIDEO ) )
 			return;
 
-	if( cls.keyCatchers == 0 && sdlrepeatenabled )
+	if( cls.keyCatchers == 0 && keyRepeatEnabled )
 	{
 		SDL_EnableKeyRepeat( 0, 0 );
-		sdlrepeatenabled = qfalse;
+		keyRepeatEnabled = qfalse;
 	}
-	else if( !sdlrepeatenabled )
+	else if( !keyRepeatEnabled )
 	{
 		SDL_EnableKeyRepeat( SDL_DEFAULT_REPEAT_DELAY,
 			SDL_DEFAULT_REPEAT_INTERVAL );
-		sdlrepeatenabled = qtrue;
+		keyRepeatEnabled = qtrue;
 	}
 
 	while (SDL_PollEvent(&e))
@@ -453,7 +460,7 @@ static void IN_ProcessEvents( void )
 				break;
 
 			case SDL_MOUSEMOTION:
-				if (mouse_active)
+				if (mouseActive)
 					Sys_QueEvent( 0, SE_MOUSE, e.motion.xrel, e.motion.yrel, 0, NULL );
 				break;
 

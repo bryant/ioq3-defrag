@@ -191,6 +191,16 @@ qboolean Sys_LowPhysicalMemory( void )
 
 /*
 ==================
+Sys_Basename
+==================
+*/
+const char *Sys_Basename( char *path )
+{
+	return basename( path );
+}
+
+/*
+==================
 Sys_Dirname
 ==================
 */
@@ -423,18 +433,18 @@ the result is returned. If not, dir is returned untouched.
 */
 char *Sys_StripAppBundle( char *dir )
 {
-        static char cwd[MAX_OSPATH];
+	static char cwd[MAX_OSPATH];
 
-        Q_strncpyz(cwd, dir, sizeof(cwd));
-        if(strcmp(basename(cwd), "MacOS"))
-                return dir;
-        Q_strncpyz(cwd, dirname(cwd), sizeof(cwd));
-        if(strcmp(basename(cwd), "Contents"))
-                return dir;
-        Q_strncpyz(cwd, dirname(cwd), sizeof(cwd));
-        if(!strstr(basename(cwd), ".app"))
-                return dir;
-        Q_strncpyz(cwd, dirname(cwd), sizeof(cwd));
-        return cwd;
+	Q_strncpyz(cwd, dir, sizeof(cwd));
+	if(strcmp(Sys_Basename(cwd), "MacOS"))
+		return dir;
+	Q_strncpyz(cwd, Sys_Dirname(cwd), sizeof(cwd));
+	if(strcmp(Sys_Basename(cwd), "Contents"))
+		return dir;
+	Q_strncpyz(cwd, Sys_Dirname(cwd), sizeof(cwd));
+	if(!strstr(Sys_Basename(cwd), ".app"))
+		return dir;
+	Q_strncpyz(cwd, Sys_Dirname(cwd), sizeof(cwd));
+	return cwd;
 }
 #endif // MACOS_X

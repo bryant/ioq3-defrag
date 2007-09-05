@@ -225,6 +225,36 @@ qboolean Sys_LowPhysicalMemory( void )
 
 /*
 ==============
+Sys_Basename
+==============
+*/
+const char *Sys_Basename( char *path )
+{
+	static char base[ MAX_OSPATH ] = { 0 };
+	int length;
+
+	length = strlen( path ) - 1;
+
+	// Skip trailing slashes
+	while( length > 0 && path[ length ] == '\\' )
+		length--;
+
+	while( length > 0 && path[ length - 1 ] != '\\' )
+		length--;
+
+	Q_strncpyz( base, &path[ length ], sizeof( base ) );
+
+	length = strlen( base ) - 1;
+
+	// Strip trailing slashes
+	while( length > 0 && base[ length ] == '\\' )
+    base[ length-- ] = '\0';
+
+	return base;
+}
+
+/*
+==============
 Sys_Dirname
 ==============
 */

@@ -643,7 +643,7 @@ void Sys_ParseArgs( int argc, char **argv )
 }
 
 #ifndef DEFAULT_BASEDIR
-# ifdef MACOS_X
+#	ifdef MACOS_X
 #		define DEFAULT_BASEDIR Sys_StripAppBundle(Sys_BinaryPath())
 #	else
 #		define DEFAULT_BASEDIR Sys_BinaryPath()
@@ -724,18 +724,29 @@ int main( int argc, char **argv )
 	while( 1 )
 	{
 #ifndef DEDICATED
-		if( !com_dedicated->integer )
+		int appState = SDL_GetAppState( );
+		int sleep = 0;
+
+		// If we have no input focus at all, sleep a bit
+		if( !( appState & ( SDL_APPMOUSEFOCUS | SDL_APPINPUTFOCUS ) ) )
 		{
-			int appState = SDL_GetAppState( );
-
-			// If we have no input focus at all, sleep a bit
-			if( !( appState & ( SDL_APPMOUSEFOCUS | SDL_APPINPUTFOCUS ) ) )
-				SDL_Delay( 16 );
-
-			// If we're minimised, sleep a bit more
-			if( !( appState & SDL_APPACTIVE ) )
-				SDL_Delay( 32 );
+			Cvar_SetValue( "com_unfocused", 1 );
+			sleep += 16;
 		}
+		else
+			Cvar_SetValue( "com_unfocused", 0 );
+
+		// If we're minimised, sleep a bit more
+		if( !( appState & SDL_APPACTIVE ) )
+		{
+			Cvar_SetValue( "com_minimized", 1 );
+			sleep += 32;
+		}
+		else
+			Cvar_SetValue( "com_minimized", 0 );
+
+		if( !com_dedicated->integer && sleep )
+			SDL_Delay( sleep );
 #endif
 
 		// Check for input

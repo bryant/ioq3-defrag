@@ -752,6 +752,8 @@ extern	cvar_t	*com_buildScript;		// for building release pak files
 extern	cvar_t	*com_journal;
 extern	cvar_t	*com_cameraMode;
 extern	cvar_t	*com_ansiColor;
+extern	cvar_t	*com_unfocused;
+extern	cvar_t	*com_minimized;
 extern	cvar_t	*com_altivec;
 
 // both client and server must agree to pause
@@ -1019,6 +1021,7 @@ char	*Sys_DefaultInstallPath(void);
 void  Sys_SetDefaultHomePath(const char *path);
 char	*Sys_DefaultHomePath(void);
 const char *Sys_Dirname( char *path );
+const char *Sys_Basename( char *path );
 
 char **Sys_ListFiles( const char *directory, const char *extension, char *filter, int *numfiles, qboolean wantsubs );
 void	Sys_FreeFileList( char **list );
