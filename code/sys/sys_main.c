@@ -501,122 +501,39 @@ void *Sys_LoadDll( const char *name, char *fqpath ,
 }
 
 /*
-========================================================================
-
-EVENT LOOP
-
-========================================================================
+=================
+Sys_Idle
+=================
 */
-
-#define MAX_QUED_EVENTS  256
-#define MASK_QUED_EVENTS ( MAX_QUED_EVENTS - 1 )
-
-sysEvent_t  eventQue[ MAX_QUED_EVENTS ];
-int         eventHead = 0;
-int         eventTail = 0;
-byte        sys_packetReceived[ MAX_MSGLEN ];
-
-/*
-================
-Sys_QueEvent
-
-A time of 0 will get the current time
-Ptr should either be null, or point to a block of data that can
-be freed by the game later.
-================
-*/
-void Sys_QueEvent( int time, sysEventType_t type, int value, int value2, int ptrLength, void *ptr )
+static void Sys_Idle( void )
 {
-	sysEvent_t  *ev;
+#ifndef DEDICATED
+	int appState = SDL_GetAppState( );
+	int sleep = 0;
 
-	ev = &eventQue[ eventHead & MASK_QUED_EVENTS ];
-
-	if ( eventHead - eventTail >= MAX_QUED_EVENTS )
+	// If we have no input focus at all, sleep a bit
+	if( !( appState & ( SDL_APPMOUSEFOCUS | SDL_APPINPUTFOCUS ) ) )
 	{
-		Com_Printf("Sys_QueEvent: overflow\n");
-		// we are discarding an event, but don't leak memory
-		if ( ev->evPtr )
-		{
-			Z_Free( ev->evPtr );
-		}
-		eventTail++;
+		Cvar_SetValue( "com_unfocused", 1 );
+		sleep += 16;
 	}
+	else
+		Cvar_SetValue( "com_unfocused", 0 );
 
-	eventHead++;
-
-	if ( time == 0 )
+	// If we're minimised, sleep a bit more
+	if( !( appState & SDL_APPACTIVE ) )
 	{
-		time = Sys_Milliseconds();
+		Cvar_SetValue( "com_minimized", 1 );
+		sleep += 32;
 	}
+	else
+		Cvar_SetValue( "com_minimized", 0 );
 
-	ev->evTime = time;
-	ev->evType = type;
-	ev->evValue = value;
-	ev->evValue2 = value2;
-	ev->evPtrLength = ptrLength;
-	ev->evPtr = ptr;
-}
-
-/*
-================
-Sys_GetEvent
-
-================
-*/
-sysEvent_t Sys_GetEvent( void )
-{
-	sysEvent_t  ev;
-	char        *s;
-	msg_t       netmsg;
-	netadr_t    adr;
-
-	// return if we have data
-	if ( eventHead > eventTail )
-	{
-		eventTail++;
-		return eventQue[ ( eventTail - 1 ) & MASK_QUED_EVENTS ];
-	}
-
-	// check for console commands
-	s = Sys_ConsoleInput();
-	if ( s )
-	{
-		char  *b;
-		int   len;
-
-		len = strlen( s ) + 1;
-		b = Z_Malloc( len );
-		strcpy( b, s );
-		Sys_QueEvent( 0, SE_CONSOLE, 0, 0, len, b );
-	}
-
-	// check for network packets
-	MSG_Init( &netmsg, sys_packetReceived, sizeof( sys_packetReceived ) );
-	if ( Sys_GetPacket ( &adr, &netmsg ) )
-	{
-		netadr_t  *buf;
-		int       len;
-
-		// copy out to a seperate buffer for qeueing
-		len = sizeof( netadr_t ) + netmsg.cursize;
-		buf = Z_Malloc( len );
-		*buf = adr;
-		memcpy( buf+1, netmsg.data, netmsg.cursize );
-		Sys_QueEvent( 0, SE_PACKET, 0, 0, len, buf );
-	}
-
-	// return if we have data
-	if ( eventHead > eventTail )
-	{
-		eventTail++;
-		return eventQue[ ( eventTail - 1 ) & MASK_QUED_EVENTS ];
-	}
-
-	// create an empty event to return
-	memset( &ev, 0, sizeof( ev ) );
-	ev.evTime = Sys_Milliseconds();
-
-	return ev;
+	if( !com_dedicated->integer && sleep )
+		SDL_Delay( sleep );
+#else
+	// Dedicated server idles via NET_Sleep
+#endif
 }
 
 /*
@@ -698,10 +615,6 @@ int main( int argc, char **argv )
 		Q_strcat( commandLine, sizeof( commandLine ), " " );
 	}
 
-	// Clear queues
-	memset( &eventQue[ 0 ], 0, MAX_QUED_EVENTS * sizeof( sysEvent_t ) );
-	memset( &sys_packetReceived[ 0 ], 0, MAX_MSGLEN * sizeof( byte ) );
-
 	Com_Init( commandLine );
 	NET_Init();
 
@@ -723,35 +636,8 @@ int main( int argc, char **argv )
 
 	while( 1 )
 	{
-#ifndef DEDICATED
-		int appState = SDL_GetAppState( );
-		int sleep = 0;
-
-		// If we have no input focus at all, sleep a bit
-		if( !( appState & ( SDL_APPMOUSEFOCUS | SDL_APPINPUTFOCUS ) ) )
-		{
-			Cvar_SetValue( "com_unfocused", 1 );
-			sleep += 16;
-		}
-		else
-			Cvar_SetValue( "com_unfocused", 0 );
-
-		// If we're minimised, sleep a bit more
-		if( !( appState & SDL_APPACTIVE ) )
-		{
-			Cvar_SetValue( "com_minimized", 1 );
-			sleep += 32;
-		}
-		else
-			Cvar_SetValue( "com_minimized", 0 );
-
-		if( !com_dedicated->integer && sleep )
-			SDL_Delay( sleep );
-#endif
-
-		// Check for input
+		Sys_Idle( );
 		IN_Frame( );
-
 		Com_Frame( );
 	}
 

@@ -715,6 +715,30 @@ typedef enum
 // centralized and cleaned, that's the max string you can send to a Com_Printf / Com_DPrintf (above gets truncated)
 #define	MAXPRINTMSG	4096
 
+
+typedef enum {
+	// SE_NONE must be zero
+	SE_NONE = 0,	// evTime is still valid
+	SE_KEY,		// evValue is a key code, evValue2 is the down flag
+	SE_CHAR,	// evValue is an ascii char
+	SE_MOUSE,	// evValue and evValue2 are reletive signed x / y moves
+	SE_JOYSTICK_AXIS,	// evValue is an axis number and evValue2 is the current state (-127 to 127)
+	SE_CONSOLE,	// evPtr is a char*
+	SE_PACKET	// evPtr is a netadr_t followed by data bytes to evPtrLength
+} sysEventType_t;
+
+typedef struct {
+	int				evTime;
+	sysEventType_t	evType;
+	int				evValue, evValue2;
+	int				evPtrLength;	// bytes of data pointed to by evPtr, for journaling
+	void			*evPtr;			// this must be manually freed if not NULL
+} sysEvent_t;
+
+void		Com_QueueEvent( int time, sysEventType_t type, int value, int value2, int ptrLength, void *ptr );
+int			Com_EventLoop( void );
+sysEvent_t	Com_GetSystemEvent( void );
+
 char		*CopyString( const char *in );
 void		Info_Print( const char *s );
 
@@ -724,7 +748,7 @@ void 		QDECL Com_Printf( const char *fmt, ... ) __attribute__ ((format (printf, 
 void 		QDECL Com_DPrintf( const char *fmt, ... ) __attribute__ ((format (printf, 1, 2)));
 void 		QDECL Com_Error( int code, const char *fmt, ... ) __attribute__ ((format (printf, 2, 3)));
 void 		Com_Quit_f( void );
-int			Com_EventLoop( void );
+
 int			Com_Milliseconds( void );	// will be journaled properly
 unsigned	Com_BlockChecksum( const void *buffer, int length );
 char		*Com_MD5File(const char *filename, int length, const char *prefix, int prefix_len);
@@ -942,27 +966,6 @@ typedef enum {
 	MAX_JOYSTICK_AXIS
 } joystickAxis_t;
 
-typedef enum {
-	// SE_NONE must be zero
-	SE_NONE = 0,	// evTime is still valid
-	SE_KEY,		// evValue is a key code, evValue2 is the down flag
-	SE_CHAR,	// evValue is an ascii char
-	SE_MOUSE,	// evValue and evValue2 are reletive signed x / y moves
-	SE_JOYSTICK_AXIS,	// evValue is an axis number and evValue2 is the current state (-127 to 127)
-	SE_CONSOLE,	// evPtr is a char*
-	SE_PACKET	// evPtr is a netadr_t followed by data bytes to evPtrLength
-} sysEventType_t;
-
-typedef struct {
-	int				evTime;
-	sysEventType_t	evType;
-	int				evValue, evValue2;
-	int				evPtrLength;	// bytes of data pointed to by evPtr, for journaling
-	void			*evPtr;			// this must be manually freed if not NULL
-} sysEvent_t;
-
-sysEvent_t	Sys_GetEvent( void );
-
 void	Sys_Init (void);
 
 // general development dll loading for virtual machine testing
@@ -1007,6 +1010,7 @@ cpuFeatures_t Sys_GetProcessorFeatures( void );
 void	Sys_SetErrorText( const char *text );
 
 void	Sys_SendPacket( int length, const void *data, netadr_t to );
+qboolean Sys_GetPacket( netadr_t *net_from, msg_t *net_message );
 
 qboolean	Sys_StringToAdr( const char *s, netadr_t *a );
 //Does NOT parse port numbers, only base addresses.
@@ -1022,6 +1026,7 @@ void  Sys_SetDefaultHomePath(const char *path);
 char	*Sys_DefaultHomePath(void);
 const char *Sys_Dirname( char *path );
 const char *Sys_Basename( char *path );
+char *Sys_ConsoleInput(void);
 
 char **Sys_ListFiles( const char *directory, const char *extension, char *filter, int *numfiles, qboolean wantsubs );
 void	Sys_FreeFileList( char **list );

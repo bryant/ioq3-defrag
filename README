@@ -132,6 +132,7 @@ New cvars
   com_altivec                       - enable use of altivec on PowerPC systems
   s_backend                         - read only, indicates the current sound
                                       backend
+  s_muteWhenMinimized               - mute sound when minimized
   in_joystickNo                     - select which joystick to use
   cl_consoleHistory                 - read only, stores the console history
   cl_platformSensitivity            - read only, indicates the mouse input
