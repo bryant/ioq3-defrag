@@ -107,7 +107,6 @@ static int GLimp_SetMode( int mode, qboolean fullscreen )
 	int tcolorbits, tdepthbits, tstencilbits;
 	int i = 0;
 	SDL_Surface *vidscreen = NULL;
-	SDL_Surface *icon = NULL;
 
 	ri.Printf( PRINT_ALL, "Initializing OpenGL display\n");
 
@@ -220,21 +219,25 @@ static int GLimp_SetMode( int mode, qboolean fullscreen )
 		if( SDL_GL_SetAttribute( SDL_GL_SWAP_CONTROL, r_swapInterval->integer ) < 0 )
 			ri.Printf( PRINT_ALL, "r_swapInterval requires libSDL >= 1.2.10\n" );
 
-		icon = SDL_CreateRGBSurfaceFrom(
-				(void *)CLIENT_WINDOW_ICON.pixel_data,
-				CLIENT_WINDOW_ICON.width,
-				CLIENT_WINDOW_ICON.height,
-				CLIENT_WINDOW_ICON.bytes_per_pixel * 8,
-				CLIENT_WINDOW_ICON.bytes_per_pixel * CLIENT_WINDOW_ICON.width,
+#ifdef USE_ICON
+		{
+			SDL_Surface *icon = SDL_CreateRGBSurfaceFrom(
+					(void *)CLIENT_WINDOW_ICON.pixel_data,
+					CLIENT_WINDOW_ICON.width,
+					CLIENT_WINDOW_ICON.height,
+					CLIENT_WINDOW_ICON.bytes_per_pixel * 8,
+					CLIENT_WINDOW_ICON.bytes_per_pixel * CLIENT_WINDOW_ICON.width,
 #ifdef Q3_LITTLE_ENDIAN
-				0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF
+					0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF
 #else
-				0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000
+					0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000
 #endif
-				);
+					);
 
-		SDL_WM_SetIcon( icon, NULL );
-		SDL_FreeSurface( icon );
+			SDL_WM_SetIcon( icon, NULL );
+			SDL_FreeSurface( icon );
+		}
+#endif
 
 		SDL_WM_SetCaption(CLIENT_WINDOW_TITLE, CLIENT_WINDOW_MIN_TITLE);
 		SDL_ShowCursor(0);

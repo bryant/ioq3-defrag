@@ -188,7 +188,8 @@ ifeq ($(PLATFORM),linux)
   endif
   endif
 
-  BASE_CFLAGS = -Wall -fno-strict-aliasing -Wimplicit -Wstrict-prototypes -pipe
+  BASE_CFLAGS = -Wall -fno-strict-aliasing -Wimplicit -Wstrict-prototypes \
+    -pipe -DUSE_ICON $(shell sdl-config --cflags)
 
   ifeq ($(USE_OPENAL),1)
     BASE_CFLAGS += -DUSE_OPENAL=1
@@ -207,8 +208,6 @@ ifeq ($(PLATFORM),linux)
   ifeq ($(USE_CODEC_VORBIS),1)
     BASE_CFLAGS += -DUSE_CODEC_VORBIS=1
   endif
-
-  BASE_CFLAGS += $(shell sdl-config --cflags)
 
   OPTIMIZE = -O3 -ffast-math -funroll-loops -fomit-frame-pointer
 
@@ -235,10 +234,6 @@ ifeq ($(PLATFORM),linux)
   ifneq ($(HAVE_VM_COMPILED),true)
     BASE_CFLAGS += -DNO_VM_COMPILED
   endif
-
-  DEBUG_CFLAGS = $(BASE_CFLAGS) -g -O0
-
-  RELEASE_CFLAGS=$(BASE_CFLAGS) -DNDEBUG $(OPTIMIZE)
 
   SHLIBEXT=so
   SHLIBCFLAGS=-fPIC
@@ -270,6 +265,9 @@ ifeq ($(PLATFORM),linux)
     BASE_CFLAGS += -m32
     LDFLAGS+=-m32
   endif
+
+  DEBUG_CFLAGS = $(BASE_CFLAGS) -g -O0
+  RELEASE_CFLAGS=$(BASE_CFLAGS) -DNDEBUG $(OPTIMIZE)
 
 else # ifeq Linux
 
@@ -408,7 +406,8 @@ endif
 
   ARCH=x86
 
-  BASE_CFLAGS = -Wall -fno-strict-aliasing -Wimplicit -Wstrict-prototypes
+  BASE_CFLAGS = -Wall -fno-strict-aliasing -Wimplicit -Wstrict-prototypes \
+    -DUSE_ICON -I$(SDLHDIR)/include
 
   ifeq ($(USE_OPENAL),1)
     BASE_CFLAGS += -DUSE_OPENAL=1 -DUSE_OPENAL_DLOPEN=1
@@ -430,10 +429,6 @@ endif
     -fstrength-reduce
 
   HAVE_VM_COMPILED = true
-
-  DEBUG_CFLAGS=$(BASE_CFLAGS) -g -O0
-
-  RELEASE_CFLAGS=$(BASE_CFLAGS) -DNDEBUG $(OPTIMIZE)
 
   SHLIBEXT=dll
   SHLIBCFLAGS=
@@ -460,7 +455,8 @@ endif
     LDFLAGS+=-m32
   endif
 
-  BASE_CFLAGS += -I$(SDLHDIR)/include
+  DEBUG_CFLAGS=$(BASE_CFLAGS) -g -O0
+  RELEASE_CFLAGS=$(BASE_CFLAGS) -DNDEBUG $(OPTIMIZE)
 
   # libmingw32 must be linked before libSDLmain
   CLIENT_LDFLAGS += -lmingw32 \
@@ -486,9 +482,7 @@ ifeq ($(PLATFORM),freebsd)
 
 
   BASE_CFLAGS = -Wall -fno-strict-aliasing -Wimplicit -Wstrict-prototypes \
-                -I/usr/X11R6/include
-
-  DEBUG_CFLAGS=$(BASE_CFLAGS) -g
+    -DUSE_ICON $(shell sdl-config --cflags)
 
   ifeq ($(USE_OPENAL),1)
     BASE_CFLAGS += -DUSE_OPENAL=1
@@ -500,8 +494,6 @@ ifeq ($(PLATFORM),freebsd)
   ifeq ($(USE_CODEC_VORBIS),1)
     BASE_CFLAGS += -DUSE_CODEC_VORBIS=1
   endif
-
-  BASE_CFLAGS += $(shell sdl-config --cflags)
 
   ifeq ($(ARCH),axp)
     BASE_CFLAGS += -DNO_VM_COMPILED
@@ -518,6 +510,8 @@ ifeq ($(PLATFORM),freebsd)
     BASE_CFLAGS += -DNO_VM_COMPILED
   endif
   endif
+
+  DEBUG_CFLAGS=$(BASE_CFLAGS) -g
 
   SHLIBEXT=so
   SHLIBCFLAGS=-fPIC
@@ -561,11 +555,12 @@ ifeq ($(PLATFORM),netbsd)
   THREAD_LDFLAGS=-lpthread
 
   BASE_CFLAGS = -Wall -fno-strict-aliasing -Wimplicit -Wstrict-prototypes
-  DEBUG_CFLAGS=$(BASE_CFLAGS) -g
 
   ifneq ($(ARCH),i386)
     BASE_CFLAGS += -DNO_VM_COMPILED
   endif
+
+  DEBUG_CFLAGS=$(BASE_CFLAGS) -g
 
   BUILD_CLIENT = 0
   BUILD_GAME_QVM = 0
@@ -618,9 +613,8 @@ ifeq ($(PLATFORM),sunos)
   endif
 
 
-  BASE_CFLAGS = -Wall -fno-strict-aliasing -Wimplicit -Wstrict-prototypes -pipe
-
-  BASE_CFLAGS += $(shell sdl-config --cflags)
+  BASE_CFLAGS = -Wall -fno-strict-aliasing -Wimplicit -Wstrict-prototypes \
+    -pipe -DUSE_ICON $(shell sdl-config --cflags)
 
   OPTIMIZE = -O3 -ffast-math -funroll-loops
 
