@@ -2146,7 +2146,7 @@ endif
 dist:
 	rm -rf ioquake3-$(VERSION)
 	svn export . ioquake3-$(VERSION)
-	tar --owner=root --group=root --force-local -cjf ioquake3-$(VERSION).tar.bz2 ioquake3-$(VERSION)
+	tar --owner=root --group=root --force-local --exclude=misc/osxfe -cjf ioquake3-$(VERSION).tar.bz2 ioquake3-$(VERSION)
 	rm -rf ioquake3-$(VERSION)
 
 #############################################################################
