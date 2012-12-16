@@ -67,6 +67,7 @@ void SV_GetChallenge(netadr_t from)
 		return;
 	}
 
+#if 0
 	gameName = Cmd_Argv(2);
 
 #ifdef LEGACY_PROTOCOL
@@ -84,6 +85,7 @@ void SV_GetChallenge(netadr_t from)
 			com_gamename->string);
 		return;
 	}
+#endif
 
 	oldest = 0;
 	oldestClientTime = oldestTime = 0x7fffffff;
@@ -338,6 +340,8 @@ void SV_DirectConnect( netadr_t from ) {
 	Q_strncpyz( userinfo, Cmd_Argv(1), sizeof(userinfo) );
 
 	version = atoi(Info_ValueForKey(userinfo, "protocol"));
+
+    Com_Printf("Client connecting with protocol %d\n", version);
 	
 #ifdef LEGACY_PROTOCOL
 	if(version > 0 && com_legacyprotocol->integer == version)
@@ -345,6 +349,8 @@ void SV_DirectConnect( netadr_t from ) {
 	else
 #endif
 	{
+        compat = qtrue;
+#if 0
 		if(version != com_protocol->integer)
 		{
 			NET_OutOfBandPrint(NS_SERVER, from, "print\nServer uses protocol version %i "
@@ -352,6 +358,7 @@ void SV_DirectConnect( netadr_t from ) {
 			Com_DPrintf("    rejected connect from version %i\n", version);
 			return;
 		}
+#endif
 	}
 
 	challenge = atoi( Info_ValueForKey( userinfo, "challenge" ) );
