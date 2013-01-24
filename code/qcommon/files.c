@@ -832,9 +832,7 @@ void FS_FCloseFile( fileHandle_t f ) {
 
 	if (fsh[f].zipFile == qtrue) {
 		unzCloseCurrentFile( fsh[f].handleFiles.file.z );
-		if ( fsh[f].handleFiles.unique ) {
-			unzClose( fsh[f].handleFiles.file.z );
-		}
+        unzClose( fsh[f].handleFiles.file.z );
 		Com_Memset( &fsh[f], 0, sizeof( fsh[f] ) );
 		return;
 	}
@@ -1234,16 +1232,12 @@ long FS_FOpenFileReadDir(const char *filename, searchpath_t *search, fileHandle_
 					if(strstr(filename, "ui.qvm"))
 						pak->referenced |= FS_UI_REF;
 
-					if(uniqueFILE)
-					{
-						// open a new file on the pakfile
-						fsh[*file].handleFiles.file.z = unzOpen(pak->pakFilename);
+
+                    // open a new file on the pakfile
+                    fsh[*file].handleFiles.file.z = unzOpen(pak->pakFilename);
 					
-						if(fsh[*file].handleFiles.file.z == NULL)
-							Com_Error(ERR_FATAL, "Couldn't open %s", pak->pakFilename);
-					}
-					else
-						fsh[*file].handleFiles.file.z = pak->handle;
+                    if(fsh[*file].handleFiles.file.z == NULL)
+                        Com_Error(ERR_FATAL, "Couldn't open %s", pak->pakFilename);
 
 					Q_strncpyz(fsh[*file].name, filename, sizeof(fsh[*file].name));
 					fsh[*file].zipFile = qtrue;
@@ -2018,7 +2012,6 @@ static pack_t *FS_LoadZipFile(const char *zipfile, const char *basename)
 		pack->pakBasename[strlen( pack->pakBasename ) - 4] = 0;
 	}
 
-	pack->handle = uf;
 	pack->numfiles = gi.number_entry;
 	unzGoToFirstFile(uf);
 
@@ -2052,6 +2045,9 @@ static pack_t *FS_LoadZipFile(const char *zipfile, const char *basename)
 	Z_Free(fs_headerLongs);
 
 	pack->buildBuffer = buildBuffer;
+
+    unzClose(uf);
+
 	return pack;
 }
 
@@ -2065,7 +2061,6 @@ Frees a pak structure and releases all associated resources
 
 static void FS_FreePak(pack_t *thepak)
 {
-	unzClose(thepak->handle);
 	Z_Free(thepak->buildBuffer);
 	Z_Free(thepak);
 }
